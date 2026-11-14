@@ -186,3 +186,6 @@ verify_jwt = false
 # api-catalogo-ficha valida o JWT no código (authenticateUser) e a empresa em _shared/tenant.ts
 [functions.api-catalogo-ficha]
 verify_jwt = false
+
+[functions.api-disputa]
+verify_jwt = false
