@@ -118,7 +118,7 @@ pdm_codigo_origem: vazio
 
 "Se nossa classificação identificar PDM 18481, como devemos escrever?"
 
-- ✅ "PDM 18481 inferido pelo LicitaGym."
+- ✅ "PDM 18481 inferido pelo Nexor."
 - ❌ "PDM oficial 18481."
 
 ## 7. Bloco Leading

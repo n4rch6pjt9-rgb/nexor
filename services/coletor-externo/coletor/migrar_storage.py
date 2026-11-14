@@ -1,4 +1,4 @@
-"""Leva para o Supabase Storage os arquivos que ficaram fora do LicitaGym (disco da VM ou GCS).
+"""Leva para o Supabase Storage os arquivos que ficaram fora do Nexor (disco da VM ou GCS).
 
 Em 26/09/2026 havia 43 documentos do SEST SENAT gravados em /home/<vm>/licitagym-coletor-sestsenat/dados/...
 Rodar NA MÁQUINA onde estão os arquivos:

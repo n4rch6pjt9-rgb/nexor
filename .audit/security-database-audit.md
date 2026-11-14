@@ -5,7 +5,7 @@
 | **Date** | 2026-09-22 (updated — RPC/Edge handoff round) |
 | **Policy** | READ-ONLY — no config/migration/code changes |
 | **Secrets** | Never pasted in full |
-| **Projects** | Primary: `ifaiagegyicjzlpskafh` (LicitaGym) |
+| **Projects** | Primary: `wrfumpboqablxkjmllfp` (LicitaGym) |
 | **Pair with** | `.audit/security-edge-audit.md` |
 
 ---

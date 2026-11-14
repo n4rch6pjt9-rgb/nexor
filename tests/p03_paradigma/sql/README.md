@@ -1,4 +1,4 @@
-# LicitaGym P0.3-G5.1 — testes SQL
+# Nexor P0.3-G5.1 — testes SQL
 
 Coloque os dois arquivos `.sql` em `tests/p03_paradigma/sql/`, preservando o conteúdo existente.
 

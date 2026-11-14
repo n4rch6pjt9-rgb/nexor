@@ -1,5 +1,5 @@
 """Cliente SOMENTE LEITURA sobre arquivos CSV exportados do banco, para o dry-run offline do reclassificador
-(reclassificar_escopo_pncp --entrada-dir). Quem lê o banco é o bot LicitaGym Supabase, com o SQL de export
+(reclassificar_escopo_pncp --entrada-dir). Quem lê o banco é o bot Nexor Supabase, com o SQL de export
 (RECLASSIFICAR-FORTE-EXPORT.sql); este cliente só responde selecionar/rpc a partir dos CSVs, com os mesmos nomes de
 tabela e os filtros PostgREST que o coletor usa (eq., in., gte., lte., and=(id.gte.X,id.lte.Y), limit/offset).
 Qualquer escrita levanta PermissionError: não há banco do outro lado.

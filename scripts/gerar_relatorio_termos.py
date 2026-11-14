@@ -12,7 +12,7 @@ def get_classe(pdm):
 lines = []
 lines.append('# Cobertura de Termos — Coletor PNCP (CATMAT)')
 lines.append('')
-lines.append('Relatório oficial de rastreabilidade de termos de busca textual no PNCP para cobertura de 100% dos PDMs no escopo LicitaGym.')
+lines.append('Relatório oficial de rastreabilidade de termos de busca textual no PNCP para cobertura de 100% dos PDMs no escopo Nexor.')
 lines.append('')
 lines.append('## Resumo Executivo')
 lines.append('')

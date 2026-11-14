@@ -4,7 +4,7 @@ param(
   [int]$MaxPaginas = 1,
   [int]$TamanhoPagina = 200,
   [int]$TimeoutSec = 1200,
-  [string]$BaseUrl = "https://ifaiagegyicjzlpskafh.supabase.co",
+  [string]$BaseUrl = "https://wrfumpboqablxkjmllfp.supabase.co",
   [string]$Secret
 )
 

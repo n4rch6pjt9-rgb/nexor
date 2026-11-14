@@ -78,7 +78,7 @@ Referência rápida das [Instruções Canônicas v1.2](instrucoes-canonicas.md) 
 | Anulada, revogada, fracassada ou deserta | Encerrado sem resultado | Não entra em preço | "Sem resultado" |
 | Valor PCA | Estimativa do órgão | Soma/agregação | "Valor estimado da demanda planejada" |
 | Conversão desconhecida | Não calibrada | Não calcular forecast | "Cenário, não previsão" |
-| PDM ausente, descrição suficiente | Inferido | Conforme regra aprovada | "PDM inferido pelo LicitaGym" |
+| PDM ausente, descrição suficiente | Inferido | Conforme regra aprovada | "PDM inferido pelo Nexor" |
 | PDM ausente, descrição insuficiente | Não classificável | Não | "Classificação não determinada" |
 | Consulta válida sem registros | Zero observado | Sim | "0 resultados encontrados" |
 | Campo ausente | Não disponível | Não substituir por zero | "Dado não disponível" |
@@ -108,7 +108,7 @@ Referência rápida das [Instruções Canônicas v1.2](instrucoes-canonicas.md) 
 **PRIORIDADE: ALTA — MONITORAR**
 
 - **Fato:** 6 itens no PCA do órgão, valor estimado agregado de R$ 780 mil, contratação prevista entre 74 e 96 dias.
-- **Produto:** 4 itens com CATMAT compatível com o catálogo do cliente. Em 2 itens, o PDM foi inferido pelo LicitaGym porque `pdm_codigo_origem` não está disponível.
+- **Produto:** 4 itens com CATMAT compatível com o catálogo do cliente. Em 2 itens, o PDM foi inferido pelo Nexor porque `pdm_codigo_origem` não está disponível.
 - **Leading:** existe sinal relevante de demanda planejada.
 - **Lagging:** 14 resultados históricos comparáveis (N=14, unidade=item, período informado na consulta).
 - **Geografia:** não calculada; origem operacional do cliente ainda não cadastrada.

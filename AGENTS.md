@@ -1,4 +1,4 @@
-# LicitaGym: regras de dados (todos os agentes)
+# Nexor: regras de dados (todos os agentes)
 
 Este arquivo é lido pelo Claude (importado no `CLAUDE.md`), Codex, Cursor e Copilot. Regras de produto e escopo:
 `.claude/rules/regras-negocio.md`. Regras por área: `.github/instructions/`.

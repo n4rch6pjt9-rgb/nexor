@@ -1,4 +1,4 @@
-# Coletores LicitaGym (PNCP + SEST SENAT) → Supabase + RAG
+# Coletores Nexor (PNCP + SEST SENAT) → Supabase + RAG
 
 ## Perguntar ao edital (spec 0038)
 
@@ -123,11 +123,11 @@ final traz `erros_por_tipo` (cota, erro 5xx, prazo, resposta inválida).
 - O log do dry-run mostra código, descrição, família, vencedor, marca e desconto sobre a referência.
 - Migração: `supabase/migrations/20260929140100_bi_perfil_equipamento.sql` (aplicada pela integração Supabase no merge).
 
-## Documentos das licitações dentro do LicitaGym (v16, 26/09/2026)
+## Documentos das licitações dentro do Nexor (v16, 26/09/2026)
 
 Todo processo Paradigma no escopo, aberto ou fechado, tem os anexos (edital, erratas, avisos, adiamentos, relatório final…) **registrados em `licitacao_documentos` e guardados no Supabase Storage** (bucket privado `licitacao-documentos`). Nada é apagado:
 - documento novo no portal → `first_seen_at` (o Dashboard mostra "novo" por 7 dias);
-- documento que some do portal → `removido_do_portal_em` (o arquivo continua no LicitaGym);
+- documento que some do portal → `removido_do_portal_em` (o arquivo continua no Nexor);
 - a view `v_licitacao_documentos` dá, por licitação, contagens e a lista completa (`documentos` jsonb com `bucket` e `caminho`).
 
 **Cadastro de visitante:** o portal exige identificação para baixar. O coletor se identifica com o **CNPJ da empresa** ou, desde 12/11/2026, com o **CPF de uma pessoa** (`VISITANTE_CPF` + `VISITANTE_NOME` no lugar de `VISITANTE_CNPJ` + `VISITANTE_RAZAO_SOCIAL`; os dois juntos é erro). O CPF não vai para o banco: `portal_visitante` guarda só o HMAC-SHA256 dele, com a chave `VISITANTE_HASH_CHAVE` (obrigatória com CPF; gere um valor aleatório longo e guarde só no secret). Sem estas variáveis, os documentos ficam `pendente` e nada é baixado:
@@ -365,7 +365,7 @@ O portal não tem API pública, mas a própria página usa um webservice JSON
 interno (`/portal/WebService/Servicos.asmx`). O coletor chama esses mesmos
 endpoints — não precisa de navegador headless.
 
-## Escopo (LicitaGym = CATMAT 7830)
+## Escopo (Nexor = CATMAT 7830)
 
 Definido a partir da tabela `pca_itens`: 3.331 itens de PCA de 491 planos, ~R$ 146 mi,
 **100% na classe CATMAT 7830 — Equipamento para Ginástica e Recreação**. PDMs mais planejados:
@@ -510,7 +510,7 @@ de maior valor para o RAG. Ligue `proposta`/`negociacao` quando quiser preços.
 - **Cadastro de visitante:** a interface do portal pede um cadastro rápido de
   visitante antes de baixar anexos. O endpoint de download responde sem ele,
   mas o recomendado é fazer o cadastro com os dados da empresa responsável
-  pelo LicitaGym para ficar em conformidade com o portal.
+  pelo Nexor para ficar em conformidade com o portal.
 - **LGPD:** nos cadastros estruturados só CNPJ é gravado. No RAG, CPF e CNPJ
   que aparecem nos editais são dados públicos e são indexados sem máscara
   (decisão de 01/10/2026).

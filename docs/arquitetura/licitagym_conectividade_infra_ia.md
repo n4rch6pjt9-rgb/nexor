@@ -1,10 +1,10 @@
 ---
 doc_id: lg-arq-conectividade-v1
-titulo: "Conectividade e infraestrutura de IA no LicitaGym: achados reais e melhor cenário de uso"
+titulo: "Conectividade e infraestrutura de IA no Nexor: achados reais e melhor cenário de uso"
 dominio: arquitetura_ia
 subdominio: [latencia, regiao, embeddings, rag, resiliencia, custo, mcp, observabilidade, topologia_agentes]
-projeto: LicitaGym
-supabase_project_ref: ifaiagegyicjzlpskafh
+projeto: Nexor
+supabase_project_ref: wrfumpboqablxkjmllfp
 fonte_conceitual: "UNIPDS - Material de Apoio - Conectividade: A Fundação de Tudo (live Matheus Freitas, 30/07/2026)"
 fonte_empirica: "Inspeção do banco (Supabase MCP, só leitura) e do repositório local em 29/09/2026"
 nivel_confianca: interno_revisado
@@ -14,13 +14,13 @@ idioma: pt-BR
 instrucao_de_uso: "Cada seção H2 é autocontida e pode virar um chunk. Nada aqui foi aplicado; as ações são PROPOSTA."
 ---
 
-# Conectividade e infraestrutura de IA no LicitaGym
+# Conectividade e infraestrutura de IA no Nexor
 
-> **Como este documento foi feito.** Os conceitos vêm do material da live "Conectividade: A Fundação de Tudo". Os achados vêm de consultas ao banco `ifaiagegyicjzlpskafh` (só leitura) e da leitura do código em 29/09/2026. Nada foi alterado.
+> **Como este documento foi feito.** Os conceitos vêm do material da live "Conectividade: A Fundação de Tudo". Os achados vêm de consultas ao banco `wrfumpboqablxkjmllfp` (só leitura) e da leitura do código em 29/09/2026. Nada foi alterado.
 
 ---
 
-## 1. Resposta curta: qual o melhor uso deste material no LicitaGym
+## 1. Resposta curta: qual o melhor uso deste material no Nexor
 
 **Contexto:** síntese para decisão.
 
@@ -32,11 +32,11 @@ O material não traz um "bug" para corrigir como o de prompt injection trouxe. O
 
 ---
 
-## 2. Mapa: conceito da live → estado real do LicitaGym
+## 2. Mapa: conceito da live → estado real do Nexor
 
 **Contexto:** onde o projeto já está, onde falta e o que fazer.
 
-| Conceito (seção da live) | Estado no LicitaGym (29/09/2026) | Lacuna | Ação |
+| Conceito (seção da live) | Estado no Nexor (29/09/2026) | Lacuna | Ação |
 |---|---|---|---|
 | Região e latência (2, 4.4) | Supabase em `sa-east-1` (São Paulo). Vertex AI: embedding com `GOOGLE_CLOUD_LOCATION` padrão `us-central1`, geração (`gemini-3.8-flash`) no endpoint `global` (`GEN_LOCATION`, `services/coletor-externo/coletor/ia.py`) | Hoje só lote, então tolerável. No assistente interativo, cada pergunta faz ida e volta aos EUA 2 vezes (embedding + geração) | Medir p50/p95/jitter por região antes de escolher (seção 4) |
 | Hops e topologia (3) | Não há agente em produção. Classificação de itens é determinística (dicionário de aparelhos v0.3) | Risco de desenhar o Agente de Edital como mesh | Pipeline sequencial com etapas determinísticas + LLM só onde precisa (seção 6) |
@@ -109,7 +109,7 @@ alter table public.licitacao_chunks
 
 ## 4. Região e latência: medir antes de decidir
 
-**Contexto:** caso dos 180 ms da live (seção 2) aplicado ao LicitaGym.
+**Contexto:** caso dos 180 ms da live (seção 2) aplicado ao Nexor.
 
 - **Hoje:** o banco está em São Paulo (`sa-east-1`) e as chamadas de IA vão para `us-central1` por padrão. Na coleta em lote isso não importa: o gargalo é a cota do Vertex (5 requisições/min por região nos modelos `text-*-embedding` em projetos novos, conforme o comentário do código), não a rede.
 - **Quando importa:** no assistente interativo. Uma pergunta faz pelo menos: Edge Function → Vertex (embedding) → Supabase (busca) → Vertex (geração) → usuário. São duas idas e voltas aos EUA dentro do prazo do usuário.
@@ -171,7 +171,7 @@ PDF do edital
 
 ---
 
-## 7. CAG baseado em grafo: onde faz sentido no LicitaGym
+## 7. CAG baseado em grafo: onde faz sentido no Nexor
 
 **Contexto:** seção 5 da live. A live mostra o CAG como forma de ler menos contexto seguindo relações, com o risco de o grafo ficar desatualizado.
 
@@ -201,7 +201,7 @@ PDF do edital
 
 ---
 
-## 9. Custo: shadow billing do LicitaGym
+## 9. Custo: shadow billing do Nexor
 
 **Contexto:** seção 10 da live.
 
@@ -275,7 +275,7 @@ Coleta já tem o melhor exemplo interno: `pncp_sync_request_telemetry` e `pncp_s
 
 ## 13. Perguntas e respostas de referência (golden set)
 
-**P1. Por que o assistente do LicitaGym não pode usar um único vetor de pergunta para buscar na lei e nos editais hoje?**
+**P1. Por que o assistente do Nexor não pode usar um único vetor de pergunta para buscar na lei e nos editais hoje?**
 R: Porque as duas bases foram indexadas com modelos diferentes. Em 29/09/2026 a similaridade média entre vetores das duas bases era 0,043 (praticamente ortogonais), contra 0,82 dentro dos chunks. Um vetor de pergunta só é comparável à base do mesmo modelo.
 
 **P2. Por que o fallback entre provedores não vale para embeddings?**
@@ -284,7 +284,7 @@ R: O vetor da pergunta precisa estar no mesmo espaço dos vetores da base. Troca
 **P3. Por que a busca na legislação filtra mal hoje?**
 R: Pares aleatórios de artigos têm similaridade média 0,95, provavelmente por usar um modelo de pergunta e resposta (BERT SQuAD) como embedding. Com o limiar padrão de 0,7, quase todo artigo passa.
 
-**P4. Em que região o LicitaGym deve rodar os modelos?**
+**P4. Em que região o Nexor deve rodar os modelos?**
 R: Ainda não decidido. O banco está em São Paulo e o Vertex está em `us-central1` por padrão. Para o assistente interativo, medir p95 e jitter nas duas regiões e confirmar a disponibilidade dos modelos em `southamerica-east1` antes de trocar.
 
 **P5. Qual padrão de comunicação para a análise de edital?**
@@ -293,12 +293,12 @@ R: Assíncrono com fila (`private.job_queue`), com prioridade por prazo, porque 
 **P6. Qual topologia para o Agente de Edital?**
 R: Pipeline sequencial, com etapas determinísticas (extração, dicionário de aparelhos, regras de compatibilidade) e LLM só onde precisa, com limites de chamadas, custo e tempo por edital.
 
-**P7. Onde o CAG baseado em grafo ajuda no LicitaGym?**
+**P7. Onde o CAG baseado em grafo ajuda no Nexor?**
 R: Nas remissões entre artigos da Lei 14.133. A busca vetorial encontra o artigo principal e o grafo traz os artigos citados. A lei muda pouco, então o risco de grafo desatualizado é baixo.
 
-**P8. O que do capítulo de resiliência da live o LicitaGym já faz?**
+**P8. O que do capítulo de resiliência da live o Nexor já faz?**
 R: A coleta do PNCP já tem timeout por tentativa limitado pelo tempo restante, backoff com jitter, Retry-After, lease por host e telemetria. As chamadas ao Vertex em Python ainda não têm jitter nem orçamento global.
 
 ---
 
-*Fim do documento. Mensagem da live aplicada ao LicitaGym: antes de escolher o modelo mais capaz, garantir que ele responde no tempo, no custo e no espaço vetorial certos.*
+*Fim do documento. Mensagem da live aplicada ao Nexor: antes de escolher o modelo mais capaz, garantir que ele responde no tempo, no custo e no espaço vetorial certos.*

@@ -8,7 +8,7 @@ param(
   [int]$MaxTentativas = 6,
   [int]$PausaSegundos = 5,
   [int]$TimeoutSec = 300,
-  [string]$BaseUrl = "https://ifaiagegyicjzlpskafh.supabase.co",
+  [string]$BaseUrl = "https://wrfumpboqablxkjmllfp.supabase.co",
   [string]$Secret,
   [switch]$LimparAntes
 )

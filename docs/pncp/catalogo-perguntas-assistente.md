@@ -1,4 +1,4 @@
-# Catálogo de perguntas — assistente LicitaGym
+# Catálogo de perguntas — assistente Nexor
 
 **Versão:** 2026-09-20  
 **Inventário base:** [inventario-dados.md](./inventario-dados.md)  
@@ -57,15 +57,15 @@ Parâmetro de produto: `PNCP_PCA_CLASSIFICACOES` em `_shared/pncp/licitagym-catm
 | PCA-08 | Quais PDMs são candidatos para um item? | PCA↔CATMAT | `pca_itens.codigo_classe_catmat` → `catmat_pdms` (N:49) | classe 7830 | **respondivel** | PCA-08 | Tratar candidatos como PDM escolhido |
 | PCA-09 | Qual PDM está vinculado a este item? | PCA↔CATMAT | `pca_item_pdm` → `catmat_pdms` | via item 7830 | **respondivel** (181 confirmados) | PCA-09 | Usar `catalogo_ponte` no lugar de `pca_item_pdm` — pergunta errada; ver **PONTE-01** |
 
-### Ponte PCA ↔ catálogo LicitaGym
+### Ponte PCA ↔ catálogo Nexor
 
 | id | pergunta | domínio | tabelas e chaves | gate | status | consulta | armadilha |
 |----|----------|---------|------------------|------|--------|----------|-----------|
-| PONTE-01 | Qual item do catálogo LicitaGym corresponde a este item de PCA? | PCA↔Catálogo | `catalogo_ponte` (`entidade_tipo='pca_item'`) → `catalogo_itens`; ou `codigo_item_origem` → `codigo_catmat` | item 7830 | **respondivel** (parcial; ~222 pontes) | PONTE-01 | Responder PDM (`pca_item_pdm`) quando usuário pediu **item** LicitaGym |
-| PONTE-02 | Quais itens PCA ainda não têm equivalência no catálogo LicitaGym? | PCA↔Catálogo | `pca_itens` anti-join `catalogo_ponte`; considerar `codigo_item_origem` | classe 7830 | **respondivel** | PONTE-02 | Assumir ponte Jaccard = CATMAT oficial sem checar `tipo_correspondencia` / `evidencia` |
+| PONTE-01 | Qual item do catálogo Nexor corresponde a este item de PCA? | PCA↔Catálogo | `catalogo_ponte` (`entidade_tipo='pca_item'`) → `catalogo_itens`; ou `codigo_item_origem` → `codigo_catmat` | item 7830 | **respondivel** (parcial; ~222 pontes) | PONTE-01 | Responder PDM (`pca_item_pdm`) quando usuário pediu **item** Nexor |
+| PONTE-02 | Quais itens PCA ainda não têm equivalência no catálogo Nexor? | PCA↔Catálogo | `pca_itens` anti-join `catalogo_ponte`; considerar `codigo_item_origem` | classe 7830 | **respondivel** | PONTE-02 | Assumir ponte Jaccard = CATMAT oficial sem checar `tipo_correspondencia` / `evidencia` |
 | PONTE-03 | Com que confiança é a equivalência PCA↔catálogo? | PCA↔Catálogo | `catalogo_ponte.tipo_correspondencia`, `evidencia` (`pncp:codigoItem` vs `jaccard=…`) | item 7830 | **respondivel** | PONTE-03 | Tratar `provavel`/`incerta` como match exato |
 
-> **Separação de papéis:** **PONTE-*** = item curado LicitaGym (`catalogo_itens`). **PCA-09** = PDM escolhido (`pca_item_pdm`). **PCA-08** = universo de PDMs por classe. Três perguntas distintas.
+> **Separação de papéis:** **PONTE-*** = item curado Nexor (`catalogo_itens`). **PCA-09** = PDM escolhido (`pca_item_pdm`). **PCA-08** = universo de PDMs por classe. Três perguntas distintas.
 
 ### CATMAT / Catálogo
 
@@ -74,7 +74,7 @@ Parâmetro de produto: `PNCP_PCA_CLASSIFICACOES` em `_shared/pncp/licitagym-catm
 | CAT-01 | Quais PDMs existem na classe academia? | CATMAT | `catmat_pdms` | `codigo_classe = 7830` | **respondivel** (49) | CAT-01 | — |
 | CAT-02 | Quais unidades de fornecimento valem para este PDM? | CATMAT | `catmat_pdm_unidades` ON `codigo_pdm` | PDM da classe 7830 | **respondivel** (56 linhas) | CAT-02 | Confundir unidade de **fornecimento** com `sigla_unidade_medida` de característica |
 | CAT-03 | Quais características técnicas tem este item? | CATMAT | `catalogo_itens.codigo_catmat` → `catmat_item_caracteristicas.codigo_item` | item 7830 | **respondivel** | CAT-03 | Comparar `codigo_catmat` text com int **sem cast** — zero linhas silencioso |
-| CAT-04 | Quantos itens no catálogo LicitaGym classe 7830? | Catálogo | `catalogo_itens` | `classe_catmat = :classe_gate` | **respondivel** (594) | CAT-04 | Contar `catalogo_itens` sem `classe_catmat` — mistura 7830 + 7220 |
+| CAT-04 | Quantos itens no catálogo Nexor classe 7830? | Catálogo | `catalogo_itens` | `classe_catmat = :classe_gate` | **respondivel** (594) | CAT-04 | Contar `catalogo_itens` sem `classe_catmat` — mistura 7830 + 7220 |
 | CAT-05 | Qual a natureza de despesa deste PDM? | CATMAT | `catmat_pdm_naturezas_despesa` | PDM 7830 | **vazio** (0 linhas) | CAT-05 | Inventar natureza ou usar endpoint não ingerido |
 | CAT-06 | Qual item CATMAT oficial (hierarquia completa)? | CATMAT | futuro `catmat_itens` + joins | 7830 | **nao-aplicado** | `catmat_item_completo.sql` | Prometer matview que não existe no banco |
 | CAT-07 | Quais itens 7220 estão no catálogo pendentes de curadoria? | Catálogo | `catalogo_itens` | `classe_catmat = '7220'` | **respondivel** após sync (sem `categoria_licitagym` até curar) | — | Tratar 7220 como fitness / expandir PCA para 7220 |
@@ -122,7 +122,7 @@ Parâmetro de produto: `PNCP_PCA_CLASSIFICACOES` em `_shared/pncp/licitagym-catm
 | Quanto pagaram por halter no último ano? | **PRECO-01** — recusar; tabela só em `precos_praticados.sql` |
 | Qual órgão publica PCA e não contrata? | **CONTR-01** — recusar enquanto `contratacoes_editais` vazia |
 | Estou caro ou barato? | **PRECO-02/03** — recusar |
-| Qual produto LicitaGym bate com esta linha do PCA? | **PONTE-01** (equivalência nomeada) |
+| Qual produto Nexor bate com esta linha do PCA? | **PONTE-01** (equivalência nomeada) |
 
 ### Junções do schema sem pergunta de produto — **dado orphan**
 

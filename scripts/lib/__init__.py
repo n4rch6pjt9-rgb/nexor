@@ -1,4 +1,4 @@
-"""LicitaGym scripts library."""
+"""Nexor scripts library."""
 
 from scripts.lib.http_client import (
     HttpClient,

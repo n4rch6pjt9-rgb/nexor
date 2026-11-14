@@ -175,7 +175,7 @@ LIMIT 10;
 
 ## Dados Perdidos Recuperáveis
 
-**De 113 itens sem PDM, o escopo LicitaGym interessa em:**
+**De 113 itens sem PDM, o escopo Nexor interessa em:**
 
 | Material | Estimativa | Recuperação |
 |---|---|---|

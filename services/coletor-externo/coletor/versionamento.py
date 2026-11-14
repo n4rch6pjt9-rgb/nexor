@@ -1,4 +1,4 @@
-"""Versionamento documental imutável — LicitaGym P0.3."""
+"""Versionamento documental imutável — Nexor P0.3."""
 
 from pathlib import Path
 

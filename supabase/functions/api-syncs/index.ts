@@ -27,14 +27,14 @@ export interface ApiSyncsContext {
   baseUrl?: () => string | null;
   /** Token do GitHub com permissão Actions: write no repositório (fine-grained). */
   githubToken?: () => string | null;
-  /** "dono/repo" do workflow: GITHUB_ACTIONS_REPO, padrão n4rch6pjt9-rgb/LicitaGym; null = variável inválida. */
+  /** "dono/repo" do workflow: GITHUB_ACTIONS_REPO, padrão nexor-licitacoes/nexor; null = variável inválida. */
   githubRepo?: () => string | null;
   /** Relógio (testes): a janela de 30 dias do re-run do GitHub depende de "agora". */
   agora?: () => Date;
   lerEstadoPca?: (ano: number) => Promise<unknown>;
 }
 
-const REPO_PADRAO = "n4rch6pjt9-rgb/LicitaGym";
+const REPO_PADRAO = "nexor-licitacoes/nexor";
 
 function tokenGithub(): string | null {
   const t = Deno.env.get("GITHUB_ACTIONS_TOKEN")?.trim() ?? "";

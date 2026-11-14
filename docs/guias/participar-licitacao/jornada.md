@@ -6,7 +6,7 @@ MEI, microempresa e EPP têm vantagens da [LC 123/2006](https://www.planalto.gov
 
 ## Os oito passos
 
-| # | Passo | O que decidir | LicitaGym |
+| # | Passo | O que decidir | Nexor |
 |---|--------|---------------|-----------|
 | 1 | Empresa em ordem | CNPJ ativo e **CNAE alinhado** ao objeto (ex.: equipamentos de academia, não só “serviços de TI”) | Fora do app — pré-requisito do fornecedor |
 | 2 | Certidões | Habilitação com validade curta (30–180 dias) | Fora do app — ver [habilitacao.md](./habilitacao.md) |
@@ -25,9 +25,9 @@ Detalhe de 5–8: [edital-e-proposta.md](./edital-e-proposta.md). Erros típicos
 2. **Prazo de proposta** — dá para montar habilitação e planilha?
 3. **Local de entrega** — o frete de equipamento pesado inviabiliza?
 
-No recorte LicitaGym, o objeto costuma ser classe **7830**. Busque pelo produto (esteira, anilha, rack), não só pelo nome do órgão. Órgãos usam sinônimos (“material esportivo”, “equipamento de ginástica”).
+No recorte Nexor, o objeto costuma ser classe **7830**. Busque pelo produto (esteira, anilha, rack), não só pelo nome do órgão. Órgãos usam sinônimos (“material esportivo”, “equipamento de ginástica”).
 
 ## O que o README deve deixar explícito
 
-- O LicitaGym **monitora** PNCP/Compras.gov e organiza demanda (PCA) e contratações.
-- O LicitaGym **não** substitui SICAF, envio de proposta, certificado digital nem contador.
+- O Nexor **monitora** PNCP/Compras.gov e organiza demanda (PCA) e contratações.
+- O Nexor **não** substitui SICAF, envio de proposta, certificado digital nem contador.

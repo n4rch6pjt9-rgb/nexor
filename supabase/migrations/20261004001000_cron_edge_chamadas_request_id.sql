@@ -157,7 +157,7 @@ begin
   end if;
 
   v_request_id := net.http_post(
-    url := 'https://ifaiagegyicjzlpskafh.supabase.co/functions/v1/' || p_funcao,
+    url := 'https://wrfumpboqablxkjmllfp.supabase.co/functions/v1/' || p_funcao,
     body := coalesce(p_corpo, '{}'::jsonb),
     headers := jsonb_build_object('Authorization', 'Bearer ' || v_token, 'Content-Type', 'application/json'),
     timeout_milliseconds := p_timeout_ms

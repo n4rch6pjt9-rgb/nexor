@@ -1,4 +1,4 @@
-# Política de uso de IA do LicitaGym
+# Política de uso de IA do Nexor
 
 1. **Responsável.** Quem aprova a análise responde por ela. A análise não decide participação, preço nem peça.
 2. **Dados.** Tabela de preço, desconto máximo e piso do cliente nunca vão para modelo de linguagem nem aparecem em achado. Proposta e documentos de habilitação do cliente só são processados em serviço contratado pela empresa.

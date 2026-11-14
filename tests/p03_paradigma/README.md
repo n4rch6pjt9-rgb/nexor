@@ -1,4 +1,4 @@
-# LicitaGym P0.3-G5.1 — contrato SQL (proposta)
+# Nexor P0.3-G5.1 — contrato SQL (proposta)
 
 **Não executado**. Arquivos preparados para inspeção e PostgreSQL descartável, não para produção.
 

@@ -1,4 +1,4 @@
-"""Stable JSON serialization and SHA-256 payload hashing for LicitaGym.
+"""Stable JSON serialization and SHA-256 payload hashing for Nexor.
 
 Parity note:
 Aligned with Edge Functions `supabase/functions/_shared/pncp/hash.ts`:

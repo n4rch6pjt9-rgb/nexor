@@ -1,18 +1,18 @@
 ---
 name: ciclo-janelas
-description: Rotina de fim e início de ciclo entre janelas (sessões Claude) do LicitaGym e do Dashboard. Use ao fechar um ciclo (merge, spec entregue ou PR fechado) e ao começar o próximo. Avisa as outras janelas do que mudou, checa sobreposição de arquivos, pede o relatório de próximos passos e revisita as issues dos dois repositórios.
+description: Rotina de fim e início de ciclo entre janelas (sessões Claude) do Nexor e do Dashboard. Use ao fechar um ciclo (merge, spec entregue ou PR fechado) e ao começar o próximo. Avisa as outras janelas do que mudou, checa sobreposição de arquivos, pede o relatório de próximos passos e revisita as issues dos dois repositórios.
 ---
 
 # Ciclo entre janelas (regras canônicas R2 a R4 do CLAUDE.md; R1, os revisores, roda antes do merge)
 
-**Janela** é uma sessão Claude trabalhando no LicitaGym ou no Dashboard. **Ciclo** é o trabalho de uma janela entre
+**Janela** é uma sessão Claude trabalhando no Nexor ou no Dashboard. **Ciclo** é o trabalho de uma janela entre
 dois fechamentos. Um fechamento é um merge na `main`, uma spec entregue ou um PR fechado.
 
 ## Como achar as janelas em operação
 1. `list_sessions` (MCP `claude-code-remote`, com `mine: true`). Conta como em operação a sessão que não está
    `ARCHIVED` **e** (está `connected` **ou** foi atualizada nas últimas 24 h). A sessão atual fica fora.
 2. `ListAgents`, para as sessões locais da mesma máquina.
-3. **Só é janela quem trabalha nestes repositórios:** a sessão precisa ter `n4rch6pjt9-rgb/LicitaGym` ou
+3. **Só é janela quem trabalha nestes repositórios:** a sessão precisa ter `nexor-licitacoes/nexor` ou
    `n4rch6pjt9-rgb/Dashboard---LicitaGym` em `sources`/`outcomes`/`current_branches` (ou, se for local, o diretório de
    trabalho num clone deles). A conta tem sessões de outros projetos: elas não recebem relato, e o transcript delas
    não é lido. Na dúvida, não mande.
@@ -23,7 +23,7 @@ dois fechamentos. Um fechamento é um merge na `main`, uma spec entregue ou um P
 0. Confirme o fechamento: merge na `main` (commit de merge) ou PR fechado **sem** merge. Neste segundo caso, o relato
    diz isso com todas as letras, para ninguém assumir mudança em produção.
 1. **Relato formal a cada janela em operação**, por `send_message` (ou `SendMessage`, se for local). Comece por uma
-   linha que se entende sozinha, por exemplo `[ciclo] LicitaGym #322 mergeado: sync-pncp-orgaos`, e inclua:
+   linha que se entende sozinha, por exemplo `[ciclo] Nexor #322 mergeado: sync-pncp-orgaos`, e inclua:
    - o que foi feito: PR, commit de merge, issue fechada ou aberta;
    - os **arquivos alterados** (`git diff --name-only <base>...<merge>`) e os **objetos de produção** tocados
      (migration, tabela, view, função, Edge Function, cron);
@@ -32,7 +32,7 @@ dois fechamentos. Um fechamento é um merge na `main`, uma spec entregue ou um P
      colateral (quem importa o arquivo, quem lê a tabela ou view, o front que consome a ação); (b) um relatório curto
      dos próximos passos dela, para avaliar impacto futuro.
 2. **Revisitar as issues dos dois repositórios** (R2):
-   - `list_issues` (state OPEN) em `n4rch6pjt9-rgb/LicitaGym` e `n4rch6pjt9-rgb/Dashboard---LicitaGym`;
+   - `list_issues` (state OPEN) em `nexor-licitacoes/nexor` e `n4rch6pjt9-rgb/Dashboard---LicitaGym`;
    - para cada issue citada pelo PR, pela spec ou pelos arquivos tocados:
      - **resolvida**: só quando o PR que a resolve está **mergeado na `main`** e, se tocou `supabase/**` ou o
        Dashboard publicado, foi conferido em produção. Comentar a evidência (PR, commit de merge, consulta) e fechar

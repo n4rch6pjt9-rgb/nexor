@@ -1,6 +1,6 @@
-# Estrutura de instruções do LicitaGym: diagnóstico e padrão
+# Estrutura de instruções do Nexor: diagnóstico e padrão
 
-Base: repositório `n4rch6pjt9-rgb/LicitaGym` (commit `8436bdd`) e a documentação oficial do Claude Code sobre memória
+Base: repositório `nexor-licitacoes/nexor` (commit `8436bdd`) e a documentação oficial do Claude Code sobre memória
 (code.claude.com/docs/en/memory), lidos em 20/10/2026.
 
 ## 1. O que está errado hoje

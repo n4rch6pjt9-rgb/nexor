@@ -1,6 +1,6 @@
 # Cobertura de Termos — Coletor PNCP (CATMAT)
 
-Relatório oficial de rastreabilidade de termos de busca textual no PNCP para cobertura de 100% dos PDMs no escopo LicitaGym.
+Relatório oficial de rastreabilidade de termos de busca textual no PNCP para cobertura de 100% dos PDMs no escopo Nexor.
 
 ## Resumo Executivo
 

@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
-# Clona o LicitaGym público no SHA (head do PR) e roda o pytest do coletor.
+# Clona o Nexor público no SHA (head do PR) e roda o pytest do coletor.
 # Não grava no GCS nem no Supabase. Passos de rede: timeout de 20s.
 # Saída padrão: uma linha "<passo> OK" ou "<passo> FALHA". Exit 1 se algo falhar.
 set -u
 
 SHA="${1:-}"
-URL="https://github.com/n4rch6pjt9-rgb/LicitaGym.git"
+URL="https://github.com/nexor-licitacoes/nexor"
 
 falha() {
   echo "$1 FALHA"

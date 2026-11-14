@@ -1,6 +1,6 @@
 """Perfil do item para o BI: família de equipamento (dicionário de aparelhos v0.3), fonte de carga e marca normalizada.
 
-- Família/nó: `classificar_aparelho` (dicionário do LicitaGym). Quando o dicionário não reconhece o texto curto do
+- Família/nó: `classificar_aparelho` (dicionário do Nexor). Quando o dicionário não reconhece o texto curto do
   portal (ex.: "REMO", "CADEIRA TRICEPS DIMENSAO", "MAQUINA DESENVOLVIMENTO"), uma regra grossa dá só a família
   (metodo='regra_perfil'), para o BI não ficar com buraco. Os textos que caem nessa regra são candidatos a sinônimo
   novo no dicionário.

@@ -1,9 +1,9 @@
 ---
 name: code-review
-description: Revisa pull requests do LicitaGym (Edge Functions Deno, migrations Supabase, collectors Python, app Electron) contra as regras de precisão, rastreabilidade e segurança do projeto. Use em toda revisão de PR, diff ou branch antes do merge.
+description: Revisa pull requests do Nexor (Edge Functions Deno, migrations Supabase, collectors Python, app Electron) contra as regras de precisão, rastreabilidade e segurança do projeto. Use em toda revisão de PR, diff ou branch antes do merge.
 ---
 
-# Code Review — LicitaGym
+# Code Review — Nexor
 
 Revisão objetiva e acionável, em **português**. O objetivo é encontrar problemas reais que afetem a precisão dos dados de licitação, a segurança ou a operação dos syncs — não reescrever o código ao seu gosto.
 

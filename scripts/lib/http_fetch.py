@@ -1,4 +1,4 @@
-"""Shared HTTP fetch helper for LicitaGym Python collectors.
+"""Shared HTTP fetch helper for Nexor Python collectors.
 
 Enforces HTTP P0 rule: errors (transport, timeout, 4xx, 5xx, 429-exhausted)
 MUST NEVER be masked as empty lists/envelopes (e.g. {"resultado": []} or {"data": []}).

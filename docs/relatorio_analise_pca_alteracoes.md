@@ -1,7 +1,7 @@
 # Relatório: pca_planos × pca_alteracoes
 
 **Data da execução:** 2026-09-19  
-**Projeto Supabase:** `ifaiagegyicjzlpskafh`  
+**Projeto Supabase:** `wrfumpboqablxkjmllfp`  
 **Recorte:** classe `7830` (gate via `EXISTS` em `pca_itens.classe_material_servico`)
 
 ---

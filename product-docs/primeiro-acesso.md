@@ -6,7 +6,7 @@ description: Prepare seu acesso e saiba como agir se não conseguir entrar.
 
 Antes de acessar
 
-Confirme com a equipe responsável o endereço oficial do LicitaGym e qual conta você deve utilizar. Se ainda não recebeu acesso, solicite as orientações de entrada antes de começar.
+Confirme com a equipe responsável o endereço oficial do Nexor e qual conta você deve utilizar. Se ainda não recebeu acesso, solicite as orientações de entrada antes de começar.
 
 Checklist de acesso
 

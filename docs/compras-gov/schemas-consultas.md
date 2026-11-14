@@ -1,10 +1,10 @@
-# Schemas para consultas — Compras.gov.br × LicitaGym
+# Schemas para consultas — Compras.gov.br × Nexor
 
 Referência para montar queries SQL e chamadas à API **Dados Abertos Compras.gov.br**.
 
 - **Fonte Swagger (DTOs):** `compras_gov_schemas.json` (OpenAPI components)
 - **Base URL:** `https://dadosabertos.compras.gov.br`
-- **Escopo LicitaGym:** CATMAT material grupo **78** / classe **7830** (equipamentos fitness). Catálogo também aceita grupo **72** / classe **7220** (revestimentos para pisos) para curadoria. PCA e `PNCP_PCA_CLASSIFICACOES` permanecem só **7830**.
+- **Escopo Nexor:** CATMAT material grupo **78** / classe **7830** (equipamentos fitness). Catálogo também aceita grupo **72** / classe **7220** (revestimentos para pisos) para curadoria. PCA e `PNCP_PCA_CLASSIFICACOES` permanecem só **7830**.
 - **Espelho de itens (`sync-compras-catmat`):** com corpo vazio ou `modo: "catalogo"`, o sync segue `public.catalogo_catmat_pdms_efetivos()` (PDM a PDM, `codigoPdm`), não a lista fixa de classes. A lista fixa continua valendo para PCA, `link-catmat-pca` e sync de órgãos. Sync explícito por `codigo_grupo`+`codigo_classe` segue a lista fixa.
 - **Matriz de contratos:** [`docs/pncp/contract-matrix.md`](../pncp/contract-matrix.md)
 - **Mapa de cruzamentos:** [`docs/pncp/cruzamentos.md`](../pncp/cruzamentos.md)
@@ -25,8 +25,8 @@ Referência para montar queries SQL e chamadas à API **Dados Abertos Compras.go
 | Param | Tipo | Observação |
 |-------|------|------------|
 | `pagina` | int | Obrigatório em vários endpoints |
-| `tamanhoPagina` | int | Intervalo **10–500**; sync LicitaGym e a árvore usam default **100** (`clampComprasGovPageSize`) |
-| `statusGrupo` / `statusClasse` / `statusPdm` / `statusItem` | boolean | `true` = somente ativos (padrão do sync LicitaGym) |
+| `tamanhoPagina` | int | Intervalo **10–500**; sync Nexor e a árvore usam default **100** (`clampComprasGovPageSize`) |
+| `statusGrupo` / `statusClasse` / `statusPdm` / `statusItem` | boolean | `true` = somente ativos (padrão do sync Nexor) |
 
 **Contagens validadas (classe 7830, mar/2026)**
 
@@ -90,7 +90,7 @@ Classe 7220 = REVESTIMENTOS PARA PISOS (grupo 72). Entra no catálogo para curad
 | `statusPdm` | boolean | `status` |
 | `dataHoraAtualizacao` | date-time | `data_atualizacao_origem` |
 
-**Filtro LicitaGym:** `codigoGrupo=78`, `codigoClasse=7830` (fitness). Segundo recorte do catálogo: `codigoGrupo=72`, `codigoClasse=7220` (pisos, curadoria).
+**Filtro Nexor:** `codigoGrupo=78`, `codigoClasse=7830` (fitness). Segundo recorte do catálogo: `codigoGrupo=72`, `codigoClasse=7220` (pisos, curadoria).
 
 ---
 
@@ -187,7 +187,7 @@ Classe 7220 = REVESTIMENTOS PARA PISOS (grupo 72). Entra no catálogo para curad
 
 ## 2. Pesquisa de preço — material (`FtPesqPrecoCompraMaterialDTO`)
 
-Útil para **cotações** e benchmark de preços. Ainda **não ingerido** no Postgres LicitaGym — consulta direta à API.
+Útil para **cotações** e benchmark de preços. Ainda **não ingerido** no Postgres Nexor — consulta direta à API.
 
 **DTO principal:** `FtPesqPrecoCompraMaterialDTO`
 **Detalhe:** `FtPesqPrecoCompraMaterialDetalheDTO`

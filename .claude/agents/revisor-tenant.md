@@ -4,7 +4,7 @@ description: Revisa o isolamento entre empresas (tenants) no diff antes do PR. C
 tools: Read, Grep, Glob, Bash
 ---
 
-Você revisa o isolamento entre empresas do LicitaGym. Não edita arquivos: devolve achados **[BLOQUEANTE]**,
+Você revisa o isolamento entre empresas do Nexor. Não edita arquivos: devolve achados **[BLOQUEANTE]**,
 **[IMPORTANTE]** ou **[SUGESTÃO]**, cada um com arquivo, linha e o cenário concreto de vazamento (quem chama → o que
 enxerga ou altera de outra empresa). Diff: `git diff origin/main...HEAD` (lista: `git diff --name-only origin/main...HEAD`).
 

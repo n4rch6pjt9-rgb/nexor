@@ -6,7 +6,7 @@ param(
   [int]$Limite = 500,
   [int]$OffsetInicial = 0,
   [int]$MaxRodadas = 200,
-  [string]$BaseUrl = "https://ifaiagegyicjzlpskafh.supabase.co",
+  [string]$BaseUrl = "https://wrfumpboqablxkjmllfp.supabase.co",
   [string]$Secret
 )
 

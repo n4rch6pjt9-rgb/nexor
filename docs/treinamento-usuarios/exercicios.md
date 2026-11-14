@@ -18,7 +18,7 @@
 | 1 | PCA de R$ 1,2 mi em equipamentos fitness, contratação prevista em 90 dias, nenhum edital | MONITORAR. Há demanda planejada de R$ 1,2 mi, mas nenhuma oportunidade aberta. |
 | 2 | Fornecedor venceu 3 de 6 resultados | "3 vitórias em 6 resultados, 50%, N=6. Amostra pequena; percentual descritivo." |
 | 3 | A consulta ao portal falhou | "Não verificado — falha na consulta." Nunca "0". |
-| 4 | O PDM não veio da fonte, mas a descrição indica grama sintética | "PDM 18481 inferido pelo LicitaGym a partir da descrição." |
+| 4 | O PDM não veio da fonte, mas a descrição indica grama sintética | "PDM 18481 inferido pelo Nexor a partir da descrição." |
 | 5 | Último vencedor a R$ 2.779,46/t | "Referência histórica; comparabilidade ainda precisa ser validada." |
 | 6 | Você ficou em 2º lugar num pregão homologado e o vencedor ainda não assinou | MONITORAR. Se o vencedor não assinar, a Administração pode convocar você nas condições da proposta vencedora. |
 | 7 | Saiu a ata de habilitação e o concorrente foi habilitado com atestado fraco | Manifestar a intenção de recorrer **na hora**, pedir vista e apresentar as razões em até 3 dias úteis. |

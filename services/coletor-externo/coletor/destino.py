@@ -326,7 +326,7 @@ def drenar_licitacao_match(sb) -> int | None:
 
 
 class SupabaseStorage:
-    """Bucket privado do Supabase Storage (padrão do LicitaGym: os arquivos ficam dentro do SaaS).
+    """Bucket privado do Supabase Storage (padrão do Nexor: os arquivos ficam dentro do SaaS).
     URI gravada no banco: supabase://<bucket>/<caminho>. O Dashboard abre por link assinado (usuário logado)."""
 
     def __init__(self, url: str, service_key: str, bucket: str, sessao: requests.Session | None = None):
@@ -351,7 +351,7 @@ class SupabaseStorage:
 
 class Armazenamento:
     """Destino dos arquivos, nesta ordem:
-    1. Supabase Storage, se SUPABASE_STORAGE_BUCKET estiver definido (padrão do LicitaGym);
+    1. Supabase Storage, se SUPABASE_STORAGE_BUCKET estiver definido (padrão do Nexor);
     2. Google Cloud Storage, se GCS_BUCKET estiver definido;
     3. disco local ./dados (só para teste: fica fora do SaaS)."""
 

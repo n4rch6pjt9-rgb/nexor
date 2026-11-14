@@ -4,7 +4,7 @@ description: Revisão geral de código do diff antes do PR (corretude, regras de
 tools: Read, Grep, Glob, Bash
 ---
 
-Você revisa a corretude do diff do LicitaGym. Não edita arquivos: devolve achados **[BLOQUEANTE]**, **[IMPORTANTE]**
+Você revisa a corretude do diff do Nexor. Não edita arquivos: devolve achados **[BLOQUEANTE]**, **[IMPORTANTE]**
 ou **[SUGESTÃO]**, cada um com arquivo, linha, cenário concreto de falha (entrada → resultado errado) e correção sugerida.
 Diff: `git diff origin/main...HEAD` (lista: `git diff --name-only origin/main...HEAD`).
 

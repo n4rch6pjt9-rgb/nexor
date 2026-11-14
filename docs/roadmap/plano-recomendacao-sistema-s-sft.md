@@ -23,7 +23,7 @@ Revisado em 01/10/2026 contra o código. Substitui o rascunho `README.md.txt` (w
 
 Recomenda licitações para fornecedores. Adaptação do `modelTrainingWorker.js` do curso:
 
-| E-commerce (curso) | LicitaGym |
+| E-commerce (curso) | Nexor |
 |---|---|
 | usuário | fornecedor (CNPJ) |
 | produto | item de licitação (`licitacao_itens`) |
@@ -84,7 +84,7 @@ Pendências:
 
 Pipeline na `main` do repo `P-s-Treinamento-LLM` (`training/`).
 
-1. **Coletar** (`export_dataset.py coletar`): itens do LicitaGym + objetos do Sesc (API 213). Não precisa esperar o
+1. **Coletar** (`export_dataset.py coletar`): itens do Nexor + objetos do Sesc (API 213). Não precisa esperar o
    Passo 2.
 2. **Pré-rotular** (`rotular_gemini.py`, Vertex com `GOOGLE_GENAI_USE_VERTEXAI=true`) → `rotulos_sugeridos.csv`.
    **Não grava no banco.**
@@ -92,7 +92,7 @@ Pipeline na `main` do repo `P-s-Treinamento-LLM` (`training/`).
 4. **Montar** (`export_dataset.py montar`): só linhas revisadas; split 70/15/15 por licitação.
 5. **Treinar** (`sft_tunix.ipynb`: Gemma 3 1B-it + LoRA, Colab TPU v5e-1 ou T4).
 6. **Avaliar** (`avaliar.py`) contra o baseline `escopo.classificar_texto_item` do coletor. **O aceite usa o macro-F1
-   dos itens do LicitaGym** (`id` com prefixo `lg-`): o Sesc entra com o objeto da licitação, não com o item, então é
+   dos itens do Nexor** (`id` com prefixo `lg-`): o Sesc entra com o objeto da licitação, não com o item, então é
    útil no treino mas não representa a produção. `avaliar.py` mostra as métricas por origem.
 7. **Integrar:** inferência em lote → `categoria_escopo` com `escopo_metodo = 'llm_sft'` e `escopo_confianca`.
 

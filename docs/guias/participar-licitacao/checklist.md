@@ -25,15 +25,15 @@ Não há “taxa oficial para entrar em licitação”. Cobrança para “libera
 
 1. Manter certidões e CNAE em dia (fora do app).
 2. Estar cadastrado no Compras.gov.br e nos portais que o cliente usa.
-3. Acompanhar PCA e editais 7830 no LicitaGym.
+3. Acompanhar PCA e editais 7830 no Nexor.
 4. Ler dois ou três editais inteiros mesmo sem participar — o padrão aparece.
 5. Só então montar preço mínimo e pasta de habilitação daquela disputa.
 
 ## Bloco pronto para FAQ do README
 
-**O LicitaGym cadastra minha empresa no SICAF?** Não.
+**O Nexor cadastra minha empresa no SICAF?** Não.
 
-**O LicitaGym envia lance?** Não. Ele mostra a oportunidade publicada no PNCP.
+**O Nexor envia lance?** Não. Ele mostra a oportunidade publicada no PNCP.
 
 **Por que filtrar 7830?** É o recorte de equipamentos/artigos esportivos usado no sync de PCA e CATMAT.
 

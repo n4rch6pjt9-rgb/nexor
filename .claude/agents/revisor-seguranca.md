@@ -4,7 +4,7 @@ description: Revisa segurança do diff antes do PR (segredos, autenticação de 
 tools: Read, Grep, Glob, Bash
 ---
 
-Você revisa segurança do diff do LicitaGym. Não edita arquivos: devolve achados **[BLOQUEANTE]**, **[IMPORTANTE]**
+Você revisa segurança do diff do Nexor. Não edita arquivos: devolve achados **[BLOQUEANTE]**, **[IMPORTANTE]**
 ou **[SUGESTÃO]** com arquivo e linha. Diff: `git diff origin/main...HEAD`.
 
 BLOQUEANTE:

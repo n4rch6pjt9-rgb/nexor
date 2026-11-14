@@ -1,4 +1,4 @@
-"""Unified Python HTTP Client for LicitaGym.
+"""Unified Python HTTP Client for Nexor.
 
 Features:
 - Configurable retry logic aligned in spirit with Edge `withRetry`:
@@ -34,7 +34,7 @@ logger = logging.getLogger(__name__)
 LEGACY_EMPTY_ON_ERROR_ENV = "LICITAGYM_LEGACY_EMPTY_ON_ERROR"
 ALLOWED_HOSTS_ENV = "LICITAGYM_HTTP_ALLOWED_HOSTS"
 
-# Default allowlist of hosts for LicitaGym collectors
+# Default allowlist of hosts for Nexor collectors
 DEFAULT_ALLOWED_HOSTS: Set[str] = {
     "dadosabertos.compras.gov.br",
     "pncp.gov.br",
@@ -293,7 +293,7 @@ def classify_exception(exc: Exception) -> Tuple[str, Optional[int]]:
 
 
 class HttpClient:
-    """Configurable HTTP client for LicitaGym collectors.
+    """Configurable HTTP client for Nexor collectors.
 
     Features:
     - Automatic Retry-After parsing on 429

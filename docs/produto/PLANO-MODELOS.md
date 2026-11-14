@@ -25,7 +25,7 @@ Regras:
 
 Valor a declarar no frontmatter (tarefa 0.3 do plano faseado). `inherit` = usa o modelo da sessão que chamou.
 
-### LicitaGym (backend)
+### Nexor (backend)
 
 | Tipo | Nome | `model` | `effort` | Nível | Observação |
 |---|---|---|---|---|---|

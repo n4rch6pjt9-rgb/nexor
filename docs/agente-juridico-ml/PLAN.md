@@ -1,4 +1,4 @@
-# Plano ONNX / TensorRT - Agente Juridico LicitaGym
+# Plano ONNX / TensorRT - Agente Juridico Nexor
 
 **Decisao (2026-09-21):** nao migrar o sistema *para* Nsight Deep Learning Designer.
 Nsight = lab de profiling. Runtime-alvo = **ONNX -> TensorRT (FP16)** no hot path de embeddings.

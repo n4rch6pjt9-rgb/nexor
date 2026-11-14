@@ -1,4 +1,4 @@
-"""Persistência de versões documentais — LicitaGym P0.3."""
+"""Persistência de versões documentais — Nexor P0.3."""
 
 import requests
 

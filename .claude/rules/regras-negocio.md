@@ -1,4 +1,4 @@
-# Regras de negócio do LicitaGym
+# Regras de negócio do Nexor
 
 <!-- Sem `paths:`: carrega em toda sessão. Só regra estável e decidida pelo Marcelo.
      Item ainda não decidido fica em docs/produto/ESCOPO.md > "Decisões pendentes", não aqui. -->

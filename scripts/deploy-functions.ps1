@@ -1,6 +1,6 @@
 # Deploy Edge Functions PNCP no projeto linkado (remoto)
 param(
-  [string]$ProjectRef = "ifaiagegyicjzlpskafh",
+  [string]$ProjectRef = "wrfumpboqablxkjmllfp",
   [switch]$Debug,
   [switch]$UseApi
 )
@@ -63,7 +63,7 @@ if ($failed.Count -gt 0) {
   3. Token novo em Account -> Access Tokens (conta dona do projeto)
   4. npx supabase login --token sbp_...
   5. CLI mais recente: npx supabase@latest functions deploy ... --use-api --debug
-  6. Alternativa: Dashboard -> Edge Functions -> Deploy from GitHub (repo LicitaGym)
+  6. Alternativa: Dashboard -> Edge Functions -> Deploy from GitHub (repo Nexor)
 
 Veja docs/pncp/deploy-checklist.md secao '403 Edge Functions'.
 "@ -ForegroundColor Yellow

@@ -10,7 +10,7 @@ from urllib.error import HTTPError
 from urllib.parse import urlencode
 from urllib.request import Request, urlopen
 
-REPO = "n4rch6pjt9-rgb/LicitaGym"
+REPO = "nexor-licitacoes/nexor"
 PROJECT = "licitagym"
 REGION = "southamerica-east1"
 

@@ -70,7 +70,7 @@ Autenticação: JWT Supabase para leitura; sync manual exige `SYNC_CRON_SECRET` 
 2. Se `db reset` falhar na conexão `:54322`, aplique migrations com `scripts/apply-migrations-local.ps1`.
 3. `config.toml` expõe schema `private` em `[api].schemas` (Edge Functions usam `service_role`).
 4. Edge Functions: `npx supabase functions serve --no-verify-jwt --env-file supabase/.env.functions.local sync-pncp-pca`
-5. PCA aceita `codigos_classificacao: ["7830"]` (padrão LicitaGym) ou `codigo_classificacao_superior` (legado); use `max_paginas` para smoke tests.
+5. PCA aceita `codigos_classificacao: ["7830"]` (padrão Nexor) ou `codigo_classificacao_superior` (legado); use `max_paginas` para smoke tests.
 6. Curadoria CATMAT: exporte do app HTML → `scripts/import-catmat-curadoria.ps1` ou POST em `import-catmat-curadoria`.
 7. CATMAT oficial Compras.gov: `.\scripts\invoke-sync-compras-catmat.ps1` (referência + características em lotes).
 8. Ponte PCA↔CATMAT: `.\scripts\invoke-link-catmat-pca-all.ps1` (ou lote via `-Offset` em `invoke-link-catmat-pca.ps1`) após sync PCA e CATMAT.

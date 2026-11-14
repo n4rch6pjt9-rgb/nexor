@@ -1,6 +1,6 @@
 # Revenue Intel — Regras e Treinamento
 
-Este espaço reúne as regras do **LicitaGym Revenue Intel**, o agente que transforma dados de planejamento e compras públicas em inteligência comercial para fornecedores do segmento fitness e esportivo.
+Este espaço reúne as regras do **Nexor Revenue Intel**, o agente que transforma dados de planejamento e compras públicas em inteligência comercial para fornecedores do segmento fitness e esportivo.
 
 **Data-base:** 27/09/2026 · **Status:** regra canônica v1.2
 

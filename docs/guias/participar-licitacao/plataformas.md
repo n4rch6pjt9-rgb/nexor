@@ -18,7 +18,7 @@ Cadastre-se **antes** de achar o edital. Sem login válido, o prazo de proposta 
 |--------|--------|
 | PNCP | Fonte oficial de publicação (editais, PCA, contratos, atas) |
 | Portal da disputa | Envio de proposta, lances, habilitação, recurso |
-| LicitaGym | Cópia local + recorte 7830; **não** envia lance |
+| Nexor | Cópia local + recorte 7830; **não** envia lance |
 
 Arquitetura de sync: [architecture.md](../../pncp/architecture.md).
 
@@ -31,4 +31,4 @@ Volume nacional: milhares de contratações por dia útil. Critério útil:
 - Modalidade (pregão eletrônico, dispensa).
 - Prazo de proposta e valor estimado.
 
-O LicitaGym privilegia **classe 7830** e PCA do exercício — demanda prevista antes do edital sair.
+O Nexor privilegia **classe 7830** e PCA do exercício — demanda prevista antes do edital sair.

@@ -1,6 +1,6 @@
 # Checklist — deploy remoto PNCP (Supabase)
 
-Projeto de referência: `ifaiagegyicjzlpskafh` (ajuste se usar outro ref).
+Projeto de referência: `wrfumpboqablxkjmllfp` (ajuste se usar outro ref).
 
 ## Pré-requisitos
 
@@ -13,7 +13,7 @@ Projeto de referência: `ifaiagegyicjzlpskafh` (ajuste se usar outro ref).
 
 ```powershell
 cd C:\Users\marce\licitagym
-npx supabase link --project-ref ifaiagegyicjzlpskafh
+npx supabase link --project-ref wrfumpboqablxkjmllfp
 ```
 
 Se falhar por permissão: peça acesso no Dashboard ou use SQL Editor + deploy manual de functions.
@@ -92,11 +92,11 @@ Script:
 3. **Re-login explícito:**
    ```powershell
    npx supabase login --token sbp_...
-   npx supabase functions deploy sync-pncp-pca --project-ref ifaiagegyicjzlpskafh --no-verify-jwt --use-api --debug
+   npx supabase functions deploy sync-pncp-pca --project-ref wrfumpboqablxkjmllfp --no-verify-jwt --use-api --debug
    ```
 4. **CLI mais recente:** `npx supabase@latest functions deploy ...`
 5. **Sem “Connect GitHub” no Dashboard** — use **GitHub Actions** no repo:
-   - GitHub → repo `LicitaGym` → Settings → Secrets → `SUPABASE_ACCESS_TOKEN` = `sbp_...` (Owner)
+   - GitHub → repo `Nexor` → Settings → Secrets → `SUPABASE_ACCESS_TOKEN` = `sbp_...` (Owner)
    - Workflow: `.github/workflows/deploy-supabase-functions.yml`
    - Actions → **Deploy Supabase Edge Functions** → Run workflow
 6. **MCP Supabase no Cursor** — Settings → MCP → supabase → Login → pedir ao agente deploy via MCP.
@@ -106,7 +106,7 @@ Script:
    Remove-Item Env:SUPABASE_ACCESS_TOKEN -ErrorAction SilentlyContinue
    npx supabase logout
    npx supabase login
-   npx supabase functions deploy sync-pncp-pca --project-ref ifaiagegyicjzlpskafh --no-verify-jwt --use-api
+   npx supabase functions deploy sync-pncp-pca --project-ref wrfumpboqablxkjmllfp --no-verify-jwt --use-api
    ```
 9. Persistindo → [Supabase Support](https://supabase.com/dashboard/support/new) (bug CLI #4802).
 
@@ -128,7 +128,7 @@ Resposta genérica `Internal Server Error` após auth OK (não é 401):
 Substitua `<REF>` e `<SECRET>`:
 
 ```powershell
-$base = "https://ifaiagegyicjzlpskafh.supabase.co"
+$base = "https://wrfumpboqablxkjmllfp.supabase.co"
 $secret = "SEU_SEGREDO_PRODUCAO"
 
 # Probe PCA (barato — Search API)
@@ -151,7 +151,7 @@ Invoke-RestMethod -Method POST `
 Scripts locais (apontando remoto):
 
 ```powershell
-.\scripts\probe-pca-periodo.ps1 -Ano 2026 -BaseUrl "https://ifaiagegyicjzlpskafh.supabase.co" -Secret $secret
+.\scripts\probe-pca-periodo.ps1 -Ano 2026 -BaseUrl "https://wrfumpboqablxkjmllfp.supabase.co" -Secret $secret
 ```
 
 ## 6. Curadoria CATMAT
@@ -159,7 +159,7 @@ Scripts locais (apontando remoto):
 ```powershell
 .\scripts\import-catmat-curadoria.ps1 `
   -JsonPath "C:\caminho\export-catmat.json" `
-  -BaseUrl "https://ifaiagegyicjzlpskafh.supabase.co" `
+  -BaseUrl "https://wrfumpboqablxkjmllfp.supabase.co" `
   -Secret $secret
 ```
 

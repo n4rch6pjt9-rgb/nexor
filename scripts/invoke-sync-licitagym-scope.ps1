@@ -1,4 +1,4 @@
-# Pipeline escopo LicitaGym. Nenhum body envia classe. A Edge resolve a policy.
+# Pipeline escopo Nexor. Nenhum body envia classe. A Edge resolve a policy.
 param(
   [int]$Ano = (Get-Date).Year,
   [int]$PcaPaginasPorRodada = 2,
@@ -9,7 +9,7 @@ param(
   [switch]$SkipLink,
   [switch]$ForcarPca,
   [switch]$SkipCaracteristicas,
-  [string]$BaseUrl = "https://ifaiagegyicjzlpskafh.supabase.co",
+  [string]$BaseUrl = "https://wrfumpboqablxkjmllfp.supabase.co",
   [string]$Secret
 )
 
@@ -40,7 +40,7 @@ function Invoke-EdgeJson {
   return $response.Content | ConvertFrom-Json
 }
 
-Write-Host "=== LicitaGym scope (policy da Edge; sem classe no body) ===" -ForegroundColor Cyan
+Write-Host "=== Nexor scope (policy da Edge; sem classe no body) ===" -ForegroundColor Cyan
 Write-Host "Base: $BaseUrl"
 
 if (-not $SkipCatmat) {

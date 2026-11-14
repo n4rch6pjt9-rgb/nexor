@@ -1,10 +1,10 @@
-# Guias de participação — LicitaGym
+# Guias de participação — Nexor
 
 Material de produto para quem vende equipamentos de academia ao poder público. Serve de base para um README (ou página de onboarding) sem copiar texto de terceiros.
 
 **Fonte de referência (consulta, 2026-08-23):** [Como participar de uma licitação](https://www.todaslicitacoes.com.br/guias/como-participar-de-licitacao) — Busca Licitações / Todas Licitações. Serviço privado, independente do PNCP. Confirme sempre no edital oficial.
 
-**Recorte LicitaGym:** classe CATMAT `7830` (equipamentos e artigos esportivos / fitness), PCA, editais, atas e contratos via [arquitetura PNCP](../pncp/architecture.md).
+**Recorte Nexor:** classe CATMAT `7830` (equipamentos e artigos esportivos / fitness), PCA, editais, atas e contratos via [arquitetura PNCP](../pncp/architecture.md).
 
 ## Arquivos
 
@@ -18,7 +18,7 @@ Material de produto para quem vende equipamentos de academia ao poder público. 
 
 ## Esboço de README (não criar ainda)
 
-1. O que é o LicitaGym (monitor PNCP focado em fitness/academia).
+1. O que é o Nexor (monitor PNCP focado em fitness/academia).
 2. Jornada do fornecedor (link para `jornada.md`).
 3. Como o app ajuda a **encontrar** a oportunidade (PCA, editais, CATMAT).
 4. O que o app **não** faz (cadastro SICAF, envio de lance, habilitação).

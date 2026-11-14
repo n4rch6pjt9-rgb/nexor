@@ -1,4 +1,4 @@
-# Coletores LicitaGym (PNCP + SEST SENAT) → Supabase + RAG
+# Coletores Nexor (PNCP + SEST SENAT) → Supabase + RAG
 
 **Versão no git: v15.** A partir desta versão o coletor **não é mais distribuído por ZIP**.
 Código canônico: este repositório (`coletor/`, `tests/`, `supabase/migrations/`, `monitor.sh`).
@@ -7,13 +7,13 @@ Código canônico: este repositório (`coletor/`, `tests/`, `supabase/migrations
 
 ```bash
 # primeira vez (Cloud Shell ou máquina local)
-git clone https://github.com/n4rch6pjt9-rgb/LicitaGym.git
-cd LicitaGym
+git clone https://github.com/nexor-licitacoes/nexor
+cd Nexor
 git checkout main          # após merge do PR v15; ou a branch feat/coletor-pncp-v15
 pip install --user -r requirements.txt
 
 # atualizar (substituí o unzip do zip)
-cd ~/LicitaGym             # ou o path do clone
+cd ~/Nexor             # ou o path do clone
 git fetch origin
 git checkout main
 git pull --ff-only origin main
@@ -120,7 +120,7 @@ O portal não tem API pública, mas a própria página usa um webservice JSON
 interno (`/portal/WebService/Servicos.asmx`). O coletor chama esses mesmos
 endpoints — não precisa de navegador headless.
 
-## Escopo (LicitaGym = CATMAT 7830)
+## Escopo (Nexor = CATMAT 7830)
 
 Definido a partir da tabela `pca_itens`: 3.331 itens de PCA de 491 planos, ~R$ 146 mi,
 **100% na classe CATMAT 7830 — Equipamento para Ginástica e Recreação**. PDMs mais planejados:
@@ -213,7 +213,7 @@ de maior valor para o RAG. Ligue `proposta`/`negociacao` quando quiser preços.
 - **Cadastro de visitante:** a interface do portal pede um cadastro rápido de
   visitante antes de baixar anexos. O endpoint de download responde sem ele,
   mas o recomendado é fazer o cadastro com os dados da empresa responsável
-  pelo LicitaGym para ficar em conformidade com o portal.
+  pelo Nexor para ficar em conformidade com o portal.
 - **LGPD:** nos cadastros estruturados só CNPJ é gravado. No RAG, CPF e CNPJ
   que aparecem nos editais são dados públicos e são indexados sem máscara, nem descartados
   (decisão de 01/10/2026).

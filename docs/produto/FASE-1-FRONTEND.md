@@ -1,4 +1,4 @@
-# Fase 1: frontend do LicitaGym sem tenant fixo, com configuração por metadados
+# Fase 1: frontend do Nexor sem tenant fixo, com configuração por metadados
 
 Base: workspace anexado (`Dashboard---LicitaGym`, commit `190d61a` com 6 arquivos alterados e não commitados em
 /oportunidades), 80 arquivos em `src/components` (cerca de 21 mil linhas), 27 rotas fotografadas no modo demo.
@@ -14,7 +14,7 @@ GitHub não puderam ser consultadas (403).
 
 | Tema | Situação hoje |
 |---|---|
-| Multi-tenant | O shell mostra "LicitaGym Brasil Esportes" para todos (`AppShell.tsx:107`). A busca ⌘K e os textos de exemplo são de fitness e Joinville. A ficha de produto está presa ao site da Konnen (`lerFichaHtml.ts`, CSP) |
+| Multi-tenant | O shell mostra "Nexor Brasil Esportes" para todos (`AppShell.tsx:107`). A busca ⌘K e os textos de exemplo são de fitness e Joinville. A ficha de produto está presa ao site da Konnen (`lerFichaHtml.ts`, CSP) |
 | Metadados × código | 17 itens no grupo A e mais de 20 no grupo B estão fixos no código: categorias de objeto (com regex no navegador), fontes, modalidades, prioridades, as 13 etapas no Kanban e no painel, grupos CATMAT 78/72, limites e rótulos de enums |
 | /configuracoes | Só 2 de 5 telas configuram algo de verdade: Empresa e usuários, e Tarefas por etapa. Usuários & RBAC e Modelo de Dados são só demonstração. Não há catálogo por CSV, edição de etapas, regras comerciais, documentos de habilitação nem alertas |
 | Permissão | `adminOnly` está declarado e nunca é usado. /saude e todas as /configuracoes abrem para qualquer usuário logado. "Rodar agora" e "Refazer o cron" aparecem para todos |
@@ -134,7 +134,7 @@ Ordem de migração: /oportunidades → /pca → /precos → /pipeline → /tare
 | 1 | Bugs 1–8 da seção 2 + vitest verde | Dashboard | P |
 | 2 | Tenant ativo no shell + guarda por papel + menu num registro único de rotas | Dashboard (+ `api-tenant`) | M |
 | 3 | Kit `src/filtros/` + `FilterBar` v2 + `DataTable` v2, migrando /oportunidades e /pca | Dashboard | M |
-| 4 | `api-metadados` (opções, limites, rótulos) e retirada das listas fixas | LicitaGym → Dashboard | M |
+| 4 | `api-metadados` (opções, limites, rótulos) e retirada das listas fixas | Nexor → Dashboard | M |
 | 5 | `/configuracoes` página inicial + `/configuracoes/catalogo` (CSV) + etapas editáveis | os dois | G |
 | 6 | Migrar o kit de filtros para as demais rotas; retirar textos de tenant e segmento | Dashboard | M |
 | 7 | Regras comerciais, habilitação, alertas como metadado | os dois | G |

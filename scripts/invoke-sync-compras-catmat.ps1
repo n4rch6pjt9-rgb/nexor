@@ -8,7 +8,7 @@ param(
   [int]$LimiteCaracteristicas = 80,
   [int]$ReferenciaRetries = 4,
   [int]$MaxPaginas = 500,
-  [string]$BaseUrl = "https://ifaiagegyicjzlpskafh.supabase.co",
+  [string]$BaseUrl = "https://wrfumpboqablxkjmllfp.supabase.co",
   [string]$Secret
 )
 

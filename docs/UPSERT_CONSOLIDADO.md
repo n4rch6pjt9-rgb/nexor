@@ -39,7 +39,7 @@ Ordem de ingestão (respeita FKs):
 
 ### Arquitetura Dual-Path (Lab Python vs. Edge Production)
 
-O LicitaGym opera uma separação arquitetural explícita entre ingestão exploratória e produção:
+O Nexor opera uma separação arquitetural explícita entre ingestão exploratória e produção:
 
 1. **Python Lab Staging (`scripts/collector_*` e `scripts/upsert_icatmat_consolidado.py`)**:
    - Ingestão em lote e staging nas tabelas `icatmat_*`.

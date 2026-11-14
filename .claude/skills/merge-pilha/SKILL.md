@@ -1,11 +1,11 @@
 ---
 name: merge-pilha
-description: Merge de PRs empilhados do LicitaGym e do Dashboard na ordem certa, com checagens de produção entre um e outro. Use só quando o usuário pedir explicitamente o merge.
+description: Merge de PRs empilhados do Nexor e do Dashboard na ordem certa, com checagens de produção entre um e outro. Use só quando o usuário pedir explicitamente o merge.
 ---
 
 # Merge de PRs empilhados
 
-**Merge na `main` do LicitaGym aplica em produção** (migrations pela integração do Supabase e Edge Functions pelo
+**Merge na `main` do Nexor aplica em produção** (migrations pela integração do Supabase e Edge Functions pelo
 `deploy-supabase-functions.yml`). Só com "ok" explícito do usuário para cada merge.
 
 1. Liste a pilha: `gh pr view <n> --json baseRefName,headRefName,mergeable,statusCheckRollup`.

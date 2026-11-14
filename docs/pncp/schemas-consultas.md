@@ -1,10 +1,10 @@
-# Schemas para consultas — Compras.gov.br × LicitaGym
+# Schemas para consultas — Compras.gov.br × Nexor
 
 Referência para montar queries SQL e chamadas à API **Dados Abertos Compras.gov.br**.
 
 - **Fonte Swagger (DTOs):** `compras_gov_schemas.json` (OpenAPI components)
 - **Base URL:** `https://dadosabertos.compras.gov.br`
-- **Escopo LicitaGym:** CATMAT material grupo **78** / classe **7830** (equipamentos fitness)
+- **Escopo Nexor:** CATMAT material grupo **78** / classe **7830** (equipamentos fitness)
 - **Matriz de contratos:** [`docs/pncp/contract-matrix.md`](../pncp/contract-matrix.md)
 
 ---
@@ -24,7 +24,7 @@ Referência para montar queries SQL e chamadas à API **Dados Abertos Compras.go
 |-------|------|------------|
 | `pagina` | int | Obrigatório em vários endpoints |
 | `tamanhoPagina` | int | Intervalo típico **10–500** (validar no Swagger por endpoint) |
-| `statusGrupo` / `statusClasse` / `statusPdm` / `statusItem` | boolean | `true` = somente ativos (padrão do sync LicitaGym) |
+| `statusGrupo` / `statusClasse` / `statusPdm` / `statusItem` | boolean | `true` = somente ativos (padrão do sync Nexor) |
 
 **Contagens validadas (classe 7830, mar/2026)**
 
@@ -80,7 +80,7 @@ Referência para montar queries SQL e chamadas à API **Dados Abertos Compras.go
 | `statusPdm` | boolean | `status` |
 | `dataHoraAtualizacao` | date-time | `data_atualizacao_origem` |
 
-**Filtro LicitaGym:** `codigoGrupo=78`, `codigoClasse=7830`
+**Filtro Nexor:** `codigoGrupo=78`, `codigoClasse=7830`
 
 ---
 
@@ -199,7 +199,7 @@ codigoClasse: 4567
 statusPdm: true
 ```
 
-**Curadoria LicitaGym:**
+**Curadoria Nexor:**
 | Campo | Valor |
 |-------|-------|
 | `categoria_licitagym` | `'piso'` |
@@ -215,7 +215,7 @@ statusPdm: true
 
 ## 2. Pesquisa de preço — material (`FtPesqPrecoCompraMaterialDTO`)
 
-Útil para **cotações** e benchmark de preços. Ainda **não ingerido** no Postgres LicitaGym — consulta direta à API.
+Útil para **cotações** e benchmark de preços. Ainda **não ingerido** no Postgres Nexor — consulta direta à API.
 
 **DTO principal:** `FtPesqPrecoCompraMaterialDTO`  
 **Detalhe:** `FtPesqPrecoCompraMaterialDetalheDTO`

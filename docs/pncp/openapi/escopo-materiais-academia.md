@@ -1,4 +1,4 @@
-# Escopo de Materiais LicitaGym — Piso, Borracha, PVC
+# Escopo de Materiais Nexor — Piso, Borracha, PVC
 
 **Data:** 2026-09-19 | **Status:** Definição de escopo  
 **Propósito:** Restringir PCA-04 e Bridge 2 a materiais relevantes (não "113 PDMs genéricos")

@@ -582,7 +582,7 @@ tarefas:
     ator: licitante
     evento_abertura: HOMOLOGACAO
     prazo: {unidade: sem_prazo_legal}
-    descricao: "Registrar preço homologado, vencedor e classificação. Documentos da fase preparatória passam a ficar disponíveis no PNCP. Classificação LicitaGym: histórico para preço/vencedor, com acompanhamento pós-homologação."
+    descricao: "Registrar preço homologado, vencedor e classificação. Documentos da fase preparatória passam a ficar disponíveis no PNCP. Classificação Nexor: histórico para preço/vencedor, com acompanhamento pós-homologação."
     saida: Resultado no histórico de preços
     base_legal: [[71, "IV", fundamento], [54, "§ 3º", referencia]]
 

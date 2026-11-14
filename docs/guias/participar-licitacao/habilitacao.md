@@ -30,4 +30,4 @@ Editais de 7830 costumam pedir atestado com **quantidade ou valor mínimo** de f
 
 ## Fora do escopo do app
 
-Emissão, renovação e upload de certidão **não** passam pelo LicitaGym. O README deve apontar esta página como “prepare isto antes de disputar”.
+Emissão, renovação e upload de certidão **não** passam pelo Nexor. O README deve apontar esta página como “prepare isto antes de disputar”.

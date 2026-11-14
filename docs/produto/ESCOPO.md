@@ -1,4 +1,4 @@
-# Escopo do LicitaGym
+# Escopo do Nexor
 
 <!-- Documento guarda-chuva. Toda spec nova aponta para uma fase daqui. Mudança neste arquivo exige ok do Marcelo. -->
 

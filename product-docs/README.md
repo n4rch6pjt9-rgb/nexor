@@ -1,11 +1,11 @@
 ---
-description: Seu roteiro de primeiros passos no LicitaGym.
+description: Seu roteiro de primeiros passos no Nexor.
 icon: hand-wave
 ---
 
 # Comece aqui
 
-Bem-vindo ao LicitaGym!
+Bem-vindo ao Nexor!
 
 Este guia ajuda você a preparar seu primeiro acesso e organizar os primeiros passos na plataforma.
 

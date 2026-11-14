@@ -1,4 +1,4 @@
-"""Documentos (anexos) dos processos Paradigma, guardados dentro do LicitaGym.
+"""Documentos (anexos) dos processos Paradigma, guardados dentro do Nexor.
 
 Fluxo, igual ao do mural do portal (HAR SFIEC PE000652022, 26/09/2026):
   1. PesquisarAnexos (sNmLocalAnexo=EditalAnexos) -> lista do processo: edital, erratas, avisos, relatório final...
@@ -74,7 +74,7 @@ CAMPOS_ENDERECO = ("VISITANTE_ENDERECO", "VISITANTE_NUMERO", "VISITANTE_BAIRRO",
 
 @dataclass(frozen=True)
 class VisitanteInstitucional:
-    """Identificação do LicitaGym nos portais: CNPJ da empresa ou CPF de uma pessoa. Lida do ambiente/segredo."""
+    """Identificação do Nexor nos portais: CNPJ da empresa ou CPF de uma pessoa. Lida do ambiente/segredo."""
     documento: str = field(repr=False)  # só dígitos, DV conferido; fora do repr (CPF é dado pessoal)
     nome: str = field(repr=False)       # razão social (CNPJ) ou nome da pessoa (CPF)
     email: str = field(repr=False)
@@ -490,7 +490,7 @@ class DocumentosParadigma:
                 mime="application/pdf", obter=lambda rel=rel: self._baixar_relatorio(rel), contador="relatorios")
 
     def sincronizar(self, lic_id: int | None, d: dict, caminho_base: str, resumo_processo: bool = False) -> dict:
-        """Registra todos os anexos do processo e baixa os que ainda não estão no LicitaGym. Com resumo_processo,
+        """Registra todos os anexos do processo e baixa os que ainda não estão no Nexor. Com resumo_processo,
         guarda também o resumo do processo (edital encerrado com resultado) como documento."""
         resumo = {"documentos": 0, "novos": 0, "baixados": 0, "aguardando_cadastro": 0, "erros": 0, "ignorados": 0,
                   "removidos_do_portal": 0, "resumos": 0, "relatorios": 0, "relatorios_pulados": 0}

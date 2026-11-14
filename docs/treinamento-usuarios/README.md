@@ -1,6 +1,6 @@
 # Bem-vindo ao treinamento
 
-Este treinamento ensina a ler corretamente as informações de compras públicas que o LicitaGym entrega, para você tomar decisões comerciais com segurança.
+Este treinamento ensina a ler corretamente as informações de compras públicas que o Nexor entrega, para você tomar decisões comerciais com segurança.
 
 Ao final, você vai saber:
 

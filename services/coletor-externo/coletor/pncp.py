@@ -1,4 +1,4 @@
-"""Coletor PNCP — busca nacional por licitações no escopo LicitaGym.
+"""Coletor PNCP — busca nacional por licitações no escopo Nexor.
 
 Usa as APIs públicas do Portal Nacional de Contratações Públicas (mapeadas em 24/09/2026):
   GET https://pncp.gov.br/api/search/?q="termo"&tipos_documento=edital&status=...&pagina=&tam_pagina=
@@ -2181,7 +2181,7 @@ def _cli_prioridades(valor: str) -> str:
 def criar_parser() -> argparse.ArgumentParser:
     """Parser da linha de comando (também usado por coletor.pncp_cloud_run para ler as opções já canônicas,
     com as abreviações do argparse resolvidas)."""
-    ap = argparse.ArgumentParser(description="Coletor PNCP (escopo LicitaGym)")
+    ap = argparse.ArgumentParser(description="Coletor PNCP (escopo Nexor)")
     ap.add_argument("--modo", choices=list(MODOS), default="leads",
                     help="leads (padrão): recebendo proposta; monitorar: em julgamento; historico: encerradas. "
                          "Só escolhe o status da busca: a prioridade gravada vem do estado de cada compra")

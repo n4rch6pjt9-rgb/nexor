@@ -969,7 +969,7 @@ def processar_processo(portal: "PortalParadigma", sb, pid: int, mod: int, resumo
         if li:
             sb.upsert("licitacao_itens", li, "licitacao_id,numero_item")
     if documentos is not None:
-        # Todos os anexos do processo (aberto ou fechado) ficam registrados e guardados no LicitaGym.
+        # Todos os anexos do processo (aberto ou fechado) ficam registrados e guardados no Nexor.
         try:
             r = documentos.sincronizar(lic["id"] if lic else None, d,
                                        f"paradigma/{portal.fonte.slug}/{modulo_de(d)}/{d['nCdProcesso']}",
@@ -1493,7 +1493,7 @@ def _executar(args, fonte: Fonte, portal: "PortalParadigma", sb, termos: list[st
         from .documentos_paradigma import DocumentosParadigma, VisitanteInstitucional
         arm = None if args.dry_run else Armazenamento.do_ambiente()
         if arm is not None and not arm.dentro_do_saas:
-            raise SystemExit("Defina SUPABASE_STORAGE_BUCKET: os documentos precisam ficar dentro do LicitaGym.")
+            raise SystemExit("Defina SUPABASE_STORAGE_BUCKET: os documentos precisam ficar dentro do Nexor.")
         # Decisão de 09/11/2026 (revoga a de 11/10): o cadastro de visitante (dados da empresa, informados na UI) vale
         # em toda fonte que coleta. Sem VISITANTE_*, documento que exige cadastro fica pendente.
         visitante = VisitanteInstitucional.do_ambiente()

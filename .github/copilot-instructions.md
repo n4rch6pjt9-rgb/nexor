@@ -1,4 +1,4 @@
-# LicitaGym — Instruções para o Copilot (chat e code review)
+# Nexor — Instruções para o Copilot (chat e code review)
 
 SaaS de monitoramento de licitações públicas (foco: equipamentos fitness). Stack: Supabase (Postgres + RLS + Edge Functions em Deno/TypeScript) e coletores Python. Fontes oficiais: PNCP, Compras.gov.br (Dados Abertos), Compras RJ.
 

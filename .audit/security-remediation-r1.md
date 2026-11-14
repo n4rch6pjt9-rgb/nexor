@@ -7,7 +7,7 @@
 | **Status** | **R1 CLOSED / FROZEN** |
 | **Freeze baseline** | `ba7a2bc` |
 | **Lifecycle** | `IMPLEMENTED → PRE-DEPLOY PASS → DEPLOYED → VERIFIED → REMEDIATED → FROZEN` |
-| **Project** | `ifaiagegyicjzlpskafh` |
+| **Project** | `wrfumpboqablxkjmllfp` |
 | **Not in scope** | SEC-DB-001, SEC-DB-002, L6B, Storage/Auth audit |
 
 **Nomenclature:** REMEDIATED = vulnerability paths closed + remote evidence; **not** full positive E2E.  
@@ -255,7 +255,7 @@ Evidence file: `.audit/_r1_edge_smoke_results.json`
 
 | Item | Value |
 |------|--------|
-| Project | ifaiagegyicjzlpskafh |
+| Project | wrfumpboqablxkjmllfp |
 | Migration file | `supabase/migrations/202609221200_sec_r1_refresh_rpc_matview_acl.sql` |
 | File SHA256 | A605D48E105C8329C9715D19BC8596FF86ADCAC0253AE0E1CBE080DC25DCF20C |
 | Applied as | `20260922144759_sec_r1_refresh_rpc_matview_acl` |

@@ -29,7 +29,7 @@ jobs:
     runs-on: ubuntu-latest
     env:
       SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
-      PROJECT_ID: ifaiagegyicjzlpskafh
+      PROJECT_ID: wrfumpboqablxkjmllfp
       SUPABASE_CLI_VERSION: "2.118.0"
       SUPABASE_CLI_SHA256: "f6089a86fb9d9221c958193a277338daddd6822f706929943812fa32e106c86d"
       SUPABASE_CLI_NPM_SHA256: "43992b1cd10872fa8078695fb71db93fbf6ace4f21c34a96a27544076b0d42a3"

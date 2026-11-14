@@ -1,4 +1,4 @@
-"""Armazenamento imutável — LicitaGym P0.3."""
+"""Armazenamento imutável — Nexor P0.3."""
 
 import hashlib
 import mimetypes

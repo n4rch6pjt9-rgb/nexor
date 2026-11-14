@@ -1,4 +1,4 @@
-# Instalação do Agente Jurídico LicitaGym
+# Instalação do Agente Jurídico Nexor
 
 ## Pré-requisitos
 
@@ -191,7 +191,7 @@ agente-juridico-ml/
 
 1. **Ingerir legislação**: Comece com a Lei 14.133/2021
 2. **Testar consultas**: Faça perguntas sobre licitações
-3. **Integrar com LicitaGym**: Conecte ao módulo de licitações
+3. **Integrar com Nexor**: Conecte ao módulo de licitações
 4. **Customizar modelo**: Fine-tune para seu domínio específico
 
 ## Recursos Adicionais

@@ -3,7 +3,7 @@ param(
   [Parameter(Mandatory = $true)]
   [string]$JsonPath,
 
-  [string]$BaseUrl = "https://ifaiagegyicjzlpskafh.supabase.co",
+  [string]$BaseUrl = "https://wrfumpboqablxkjmllfp.supabase.co",
 
   [string]$Secret
 )

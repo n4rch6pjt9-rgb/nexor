@@ -743,7 +743,7 @@ O parâmetro `timeout_milliseconds` do `pg_net` mede o tempo **total** da requis
        '0 */6 * * *',
        $$ 
        SELECT net.http_post(
-         url := 'https://ifaiagegyicjzlpskafh.supabase.co/functions/v1/sync-pncp-contratacoes-editais?async=1',
+         url := 'https://wrfumpboqablxkjmllfp.supabase.co/functions/v1/sync-pncp-contratacoes-editais?async=1',
          headers := jsonb_build_object(
            'Authorization', 'Bearer ' || (SELECT decrypted_secret FROM vault.decrypted_secrets WHERE name = 'sync_cron_secret'),
            'Content-Type', 'application/json'

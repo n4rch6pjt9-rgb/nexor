@@ -59,7 +59,7 @@ Cada linha declara chave dos dois lados, cardinalidade e natureza da junção:
 | `pca_alteracoes.sync_run_id`, `irp_eventos.sync_run_id`, `contratacoes_eventos.sync_run_id` | `private.pncp_sync_run.id` | `uuid` | cross-schema; mantido solto para não acoplar `public` a `private` |
 | `pca_itens.codigo_classe_catmat` | `catmat_pdms.codigo_classe` | `integer` | classe ≠ PDM; join retorna **até 49 PDMs candidatos** por item (classe 7830) |
 | `pca_itens.classe_material_servico` | `pca_itens.codigo_classe_catmat` | backfill numérico | redundância intencional — coluna explícita em `202609180016:3-15` |
-| `catalogo_itens.codigo_catmat` | `catmat_item_caracteristicas.codigo_item` | `text` → `int` | catálogo LicitaGym ↔ características Compras.gov (endpoint 7) |
+| `catalogo_itens.codigo_catmat` | `catmat_item_caracteristicas.codigo_item` | `text` → `int` | catálogo Nexor ↔ características Compras.gov (endpoint 7) |
 | `catalogo_itens.codigo_pdm` | `catmat_pdms.codigo_pdm` | `text` → `int` | denormalizado em `202609180012:6`; curadoria e sync Compras.gov |
 | `catalogo_ponte` → `pca_item_pdm` | mesmo `pca_item_id` | via `catalogo_itens.codigo_pdm` | duas trilhas: match de **item** (ponte) e match de **PDM** (pdm + score) |
 
@@ -155,7 +155,7 @@ Verificar dependência funcional antes de mover colunas — ver queries em PR #1
 Consultas de curadoria (filtros manuais no catálogo CATMAT):
 
 ```sql
--- Itens com curadoria manual LicitaGym (fitness)
+-- Itens com curadoria manual Nexor (fitness)
 SELECT codigo_catmat, codigo_pdm, descricao, taxonomias, categoria_licitagym
 FROM catalogo_itens
 WHERE fonte_curadoria = 'manual'
@@ -181,7 +181,7 @@ WHERE pi.ativo = true
 ORDER BY pi.pca_plano_id, pi.numero_item;
 ```
 
-## G. PCA ↔ CATMAT ↔ catálogo LicitaGym — estado validado (2026-09-19)
+## G. PCA ↔ CATMAT ↔ catálogo Nexor — estado validado (2026-09-19)
 
 Diagnóstico no banco remoto (`inventario_dados.sql` / MCP). Snapshot antigo (224 itens, 111 pontes) **substituído** após carga nacional escopo 7830.
 
@@ -194,7 +194,7 @@ Diagnóstico no banco remoto (`inventario_dados.sql` / MCP). Snapshot antigo (22
 | `catmat_pdms` ativos (classe 7830) | 49 |
 | `catalogo_itens` / `catmat_pdms` classe 7220 | curadoria — sync `72/7220`; **não** entra no gate PCA |
 
-**Perguntas de produto (catálogo assistente):** equivalência item LicitaGym = **PONTE-01/02/03**; PDM escolhido = **PCA-09**; candidatos por classe = **PCA-08**. Ver [catalogo-perguntas-assistente.md](./catalogo-perguntas-assistente.md).
+**Perguntas de produto (catálogo assistente):** equivalência item Nexor = **PONTE-01/02/03**; PDM escolhido = **PCA-09**; candidatos por classe = **PCA-08**. Ver [catalogo-perguntas-assistente.md](./catalogo-perguntas-assistente.md).
 
 **Modelo de cruzamento recomendado:**
 

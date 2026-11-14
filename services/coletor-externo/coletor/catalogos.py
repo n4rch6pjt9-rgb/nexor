@@ -1,4 +1,4 @@
-"""Catálogos dos fabricantes (MOVEMENT, LION, TOTAL HEALTH, MACSPORT, FLEX) para o LicitaGym.
+"""Catálogos dos fabricantes (MOVEMENT, LION, TOTAL HEALTH, MACSPORT, FLEX) para o Nexor.
 
 Duas saídas:
   1. Ficha estruturada por produto (tabela catalogo_produtos): marca, linha, código, nome, nó da taxonomia, carga
@@ -31,7 +31,7 @@ from .modelos import decompor_modelo
 from .perfil_item import normalizar_marca, perfil_item
 
 MANIFESTO = Path(__file__).resolve().parent / "data" / "catalogos_fabricantes.json"
-UA = "LicitaGymBot/0.1 (catalogo de fabricantes; contato via site LicitaGym)"
+UA = "LicitaGymBot/0.1 (catalogo de fabricantes; contato via site Nexor)"
 BUCKET = "catalogos-fabricantes"
 
 

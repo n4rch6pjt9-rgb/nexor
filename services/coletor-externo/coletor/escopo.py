@@ -1,4 +1,4 @@
-"""Escopo LicitaGym — derivado da tabela pca_itens (Planos de Contratação Anual).
+"""Escopo Nexor — derivado da tabela pca_itens (Planos de Contratação Anual).
 
 Base (23/09/2026): 3.331 itens de PCA, 491 planos, ~R$ 146 mi estimados, 100% na
 classe CATMAT 7830 — "EQUIPAMENTO PARA GINÁSTICA E RECREAÇÃO" (grupo 78).
@@ -87,7 +87,7 @@ PDMS_CLASSE_7830 = {
     18453: "SACO PANCADA",
 }
 
-# Todos os 58 PDMs do escopo LicitaGym (7830 + 7220 + 9320). 757 e 12550 entram com a taxonomia de pisos v0.2
+# Todos os 58 PDMs do escopo Nexor (7830 + 7220 + 9320). 757 e 12550 entram com a taxonomia de pisos v0.2
 # (placa/tapete/revestimento de borracha), condicionais como o 10779.
 PDMS_ESCOPO = {
     **PDMS_CLASSE_7830,

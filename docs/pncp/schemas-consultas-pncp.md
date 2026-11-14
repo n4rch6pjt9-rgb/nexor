@@ -1,4 +1,4 @@
-# Schemas para consultas — PNCP Consulta × LicitaGym
+# Schemas para consultas — PNCP Consulta × Nexor
 
 Referência para montar queries SQL e validar normalizers das Edge Functions de sync.
 
@@ -42,7 +42,7 @@ Referência para montar queries SQL e validar normalizers das Edge Functions de 
 | Contratações | `/v1/contratacoes/publicacao`, `/proposta`, `/atualizacao` | 10–**50** | ❌ **400** `"Tamanho de página inválido"` |
 | Instrumentos cobrança | `/v1/instrumentoscobranca/inclusao` | — | ❌ **400** — limite real **100** |
 
-Implementação LicitaGym: `clampConsultaPageSize()` em `consulta-client.ts` — defaults no máximo permitido por família (`contratacoes` 50, `pca`/`atasContratos` 500, `instrumentosCobranca` 100). Compras.gov: `clampComprasGovPageSize()` (default 500).
+Implementação Nexor: `clampConsultaPageSize()` em `consulta-client.ts` — defaults no máximo permitido por família (`contratacoes` 50, `pca`/`atasContratos` 500, `instrumentosCobranca` 100). Compras.gov: `clampComprasGovPageSize()` (default 500).
 
 ### Teste empírico — `tamanhoPagina=500` (2026-09-19)
 
@@ -65,13 +65,13 @@ Probe direto na API (fetch same-origin, sem CORS). Base: `https://pncp.gov.br/ap
 
 **Achado principal:** nem todo GET aceita `tamanhoPagina=500`. Os três endpoints de `contratacoes/*` capam em **50**; `instrumentoscobranca/inclusao` capa em **100**. Só `atas*`, `contratos*`, `pca/usuario` e `pca/atualizacao` suportam **500** de fato.
 
-**Pendência:** domínio de valores válidos de `codigoClassificacaoSuperior` em `/v1/pca/` — Swagger não documenta; LicitaGym usa `7830` (CATMAT classe academia). Retestar `/v1/pca/` isoladamente após reabrir aba/extensão para separar hang de parâmetro vs. instabilidade do endpoint.
+**Pendência:** domínio de valores válidos de `codigoClassificacaoSuperior` em `/v1/pca/` — Swagger não documenta; Nexor usa `7830` (CATMAT classe academia). Retestar `/v1/pca/` isoladamente após reabrir aba/extensão para separar hang de parâmetro vs. instabilidade do endpoint.
 
 ---
 
 ## 1. PCA — `PlanoContratacaoComItensDoUsuarioDTO`
 
-**GET** `/v1/pca/` — LicitaGym filtra `codigoClassificacaoSuperior=7830`  
+**GET** `/v1/pca/` — Nexor filtra `codigoClassificacaoSuperior=7830`  
 **GET** `/v1/pca/usuario` — mesmo DTO (não usado no sync atual)
 
 Envelope: `PaginaRetornoPlanoContratacaoComItensDoUsuarioDTO`

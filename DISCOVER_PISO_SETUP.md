@@ -32,7 +32,7 @@ Checklist completo para executar a descoberta.
 
 ```bash
 # Sem Supabase rodando, retorna dados de fallback/teste
-cd /home/user/LicitaGym
+cd /home/user/Nexor
 deno run --allow-net scripts/discover-piso-api.ts --termo piso --limite 10
 ```
 

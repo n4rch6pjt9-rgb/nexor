@@ -1,6 +1,6 @@
 -- Catálogo de perguntas — consultas canônicas (LicitaGym)
 -- Cada bloco = um statement fechado (WITH próprio). Gate 7830 parametrizado no CTE `params`.
--- Resultado esperado (2026-09-19, ifaiagegyicjzlpskafh) em comentário acima de cada bloco.
+-- Resultado esperado (2026-09-19, wrfumpboqablxkjmllfp) em comentário acima de cada bloco.
 -- IDs referenciam docs/pncp/catalogo-perguntas-assistente.md
 
 -- =============================================================================

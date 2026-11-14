@@ -6,7 +6,7 @@ Este documento estabelece o contrato das views de BI para o time de frontend do 
 
 ## 1. Visão Geral das Fontes Oficiais
 
-| Fonte / Módulo | Endpoint Base | Finalidade no LicitaGym | Frequência |
+| Fonte / Módulo | Endpoint Base | Finalidade no Nexor | Frequência |
 |---|---|---|---|
 | **Compras.gov PGC** | `/modulo-pgc/2_consultarPgcDetalheCatalogo` | Demanda planejada por classe CATMAT (7830 / 7220) de órgãos do SISG | Semanal |
 | **PNCP PCA** | `/v1/pca/?anoPca&codigoClassificacaoSuperior` | Demanda planejada de entes federados (estados, municípios, órgãos autônomos) | Diário |
@@ -21,7 +21,7 @@ Este documento estabelece o contrato das views de BI para o time de frontend do 
 
 Amostras reais das APIs oficiais (medidas em 02/10/2026; marca/fabricante/modelo/lote reconferidos ao vivo e no OpenAPI em 02/10/2026 à noite):
 
-| Campo de Negócio | Compras.gov Pesquisa de Preço (`1_consultarMaterial`) | Compras.gov ARP (`2_consultarARPItem`) | Compras.gov 14.133 (`3_consultarResultado...`) | LicitaGym `licitacao_resultados` (PNCP/Paradigma) |
+| Campo de Negócio | Compras.gov Pesquisa de Preço (`1_consultarMaterial`) | Compras.gov ARP (`2_consultarARPItem`) | Compras.gov 14.133 (`3_consultarResultado...`) | Nexor `licitacao_resultados` (PNCP/Paradigma) |
 |---|---|---|---|---|
 | **CNPJ / NI Fornecedor** | `niFornecedor` (ex.: `"04372852000160"`) | `niFornecedor` (ex.: `"40962266000130"`) | `niFornecedor` (ex.: `"03521758000163"`) | `fornecedor_cnpj` (14 dígitos) |
 | **Nome Fornecedor** | `nomeFornecedor` (ex.: `"W.E.V COMERCIAL LTDA"`) | `nomeRazaoSocialFornecedor` (ex.: `"PANTHERA LEO EQUIPAMENTOS"`) | `nomeRazaoSocialFornecedor` (ex.: `"LUBRITECH DO BRASIL"`) | `fornecedor_nome` |
@@ -304,7 +304,7 @@ Conforme identificado na auditoria do schema:
 
 ## 7. Itens de Escopo Limítrofes (Grama Sintética / Obras de Campo)
 
-Conforme conferência em produção e levantamento do catálogo CATMAT/PNCP, determinados itens com grande volume financeiro situam-se na fronteira entre fornecimento de produto (escopo da Playfit / LicitaGym) e obras de engenharia civil/construção de campos esportivos:
+Conforme conferência em produção e levantamento do catálogo CATMAT/PNCP, determinados itens com grande volume financeiro situam-se na fronteira entre fornecimento de produto (escopo da Playfit / Nexor) e obras de engenharia civil/construção de campos esportivos:
 
 | Código PDM | Nome PDM / CATMAT | Casos Típicos / Exemplo de Fornecedor | Volume / Observação |
 |---|---|---|---|

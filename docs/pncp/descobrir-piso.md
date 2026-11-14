@@ -71,7 +71,7 @@ Adicionar seção 1.8 em `docs/pncp/schemas-consultas.md`:
 | `codigoClasse` | int64 | 4567 |
 
 **Nota:** Fora do escopo padrão 78/7830, mas relacionado a materiais fitness.
-**Categoria LicitaGym:** `categoria_licitagym = "piso"` (curadoria manual)
+**Categoria Nexor:** `categoria_licitagym = "piso"` (curadoria manual)
 ```
 
 ---
@@ -101,7 +101,7 @@ Adicionar entrada para piso:
 
 ## Resultado Final
 
-**Escopo LicitaGym expandido:**
+**Escopo Nexor expandido:**
 
 | Material | Grupo | Classe | Status |
 |---|---|---|---|

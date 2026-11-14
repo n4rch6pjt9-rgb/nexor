@@ -37,7 +37,7 @@ Padrão: DRY-RUN (só SELECT; o cliente do Supabase fica embrulhado em modo some
   python -m coletor.reclassificar_escopo_pncp --consultar-pncp --consultar-detalhe   # + 410/estado do detalhe
 
 Forte ancorado (03/10/2026, modo núcleo; pncp.forte_ancorado): o mapa CATMAT traz as âncoras do catálogo
-(itens de catmat_itens_mapa(), 100 por página). Dry-run OFFLINE, sem tocar no banco: o bot LicitaGym Supabase roda o SQL de
+(itens de catmat_itens_mapa(), 100 por página). Dry-run OFFLINE, sem tocar no banco: o bot Nexor Supabase roda o SQL de
 export (RECLASSIFICAR-FORTE-EXPORT.sql) e devolve os CSVs (coletor/entrada_arquivos.py); daí
   python -m coletor.reclassificar_escopo_pncp --entrada-dir DIR --sql-backup backup.sql --mudancas-csv mud.csv \\
          --json linhas.json

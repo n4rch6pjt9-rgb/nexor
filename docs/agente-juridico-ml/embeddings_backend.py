@@ -1,5 +1,5 @@
 """
-Backends de embedding para o Agente Juridico LicitaGym.
+Backends de embedding para o Agente Juridico Nexor.
 
 Hot path: SentenceTransformers (PyTorch), ONNX ORT CUDA, ou TensorRT EP.
 Nsight DL Designer NAO e runtime — so lab de profiling.

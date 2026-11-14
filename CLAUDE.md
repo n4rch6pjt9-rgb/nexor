@@ -1,4 +1,4 @@
-# LicitaGym (backend)
+# Nexor (backend)
 
 <!-- Mantenha abaixo de 200 linhas. Regra que vale só para uma pasta vai para .claude/rules/ com `paths:`.
      Procedimento de vários passos vai para skill. Fato com data ("em 08/10...") vai para docs/, não aqui. -->
@@ -40,7 +40,7 @@ scripts/validar-migrations.sh        # Postgres 17 descartável (Docker)
 - Workflow novo do GitHub Actions não usa `uses:` (marketplace bloqueado): siga `pr-quality.yml`.
 
 ## Produção e branches de preview
-- Produção: Supabase `ifaiagegyicjzlpskafh`.
+- Produção: Supabase `wrfumpboqablxkjmllfp`.
 - **Branch de preview por PR:** a integração Supabase ↔ GitHub cria uma branch Supabase para o PR e aplica nela as
   migrations do PR (check **Supabase Preview**). É a validação em banco real antes do merge.
   - PR com migration ou Edge Function só vai para merge com o Supabase Preview verde. Se o check vier "ignored ...

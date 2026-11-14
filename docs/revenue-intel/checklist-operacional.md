@@ -43,7 +43,7 @@ Classificar só como associação **forte**, **moderada**, **fraca** ou **não v
 - [ ] Não usei SKU interno para compras públicas.
 - [ ] Mantive `SKU cliente → CATMAT → PDM → classe`.
 
-**PDM:** da fonte → "PDM informado na origem"; classificado pelo LicitaGym → "PDM inferido pelo LicitaGym"; sem classificação → "PDM não disponível/não classificável". Nunca inferido como oficial.
+**PDM:** da fonte → "PDM informado na origem"; classificado pelo Nexor → "PDM inferido pelo Nexor"; sem classificação → "PDM não disponível/não classificável". Nunca inferido como oficial.
 
 **Escopo:** 7830 → principal · 7810 → `OUT_OF_SCOPE_CANDIDATE_7810` · grama sintética → 7220 / PDM 18481 · piso esportivo → PDM 10779 + contexto esportivo/borracha · borracha granulada → PDM 9461.
 

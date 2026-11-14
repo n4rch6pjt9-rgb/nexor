@@ -5,7 +5,7 @@ param(
   [double]$LimiarSimilaridade = 0.55,
   [int]$Limite = 500,
   [int]$Offset = 0,
-  [string]$BaseUrl = "https://ifaiagegyicjzlpskafh.supabase.co",
+  [string]$BaseUrl = "https://wrfumpboqablxkjmllfp.supabase.co",
   [string]$Secret
 )
 

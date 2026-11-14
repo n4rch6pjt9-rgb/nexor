@@ -1,6 +1,6 @@
 # Edge Function: `api-dashboard-oportunidades`
 
-Função Supabase Edge Function responsável por atender o frontend do Dashboard do LicitaGym com operações de **leitura** de oportunidades a partir da tabela `licitacoes_externas`.
+Função Supabase Edge Function responsável por atender o frontend do Dashboard do Nexor com operações de **leitura** de oportunidades a partir da tabela `licitacoes_externas`.
 
 ## Sumário
 - [Arquitetura & Segurança RLS](#arquitetura--segurança-rls)

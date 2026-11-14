@@ -1,4 +1,4 @@
-# Catálogo de perguntas — assistente LicitaGym
+# Catálogo de perguntas — assistente Nexor
 
 > Status: **v0**. As perguntas, os caminhos de join, o gate e as armadilhas estão definidos.
 > A coluna **status é presumida** — vira fato quando `scripts/inventario-dados.sql` (Fase 0)

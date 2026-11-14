@@ -218,7 +218,7 @@ def test_supabase_storage_grava_no_bucket_privado():
     assert h["x-upsert"] == "true" and h["Authorization"] == "Bearer chave"
     arm = D.Armazenamento(supabase=st)
     assert arm.dentro_do_saas and arm.salvar("p/a.pdf", PDF, None).startswith("supabase://")
-    assert not D.Armazenamento().dentro_do_saas                     # disco local não conta como LicitaGym
+    assert not D.Armazenamento().dentro_do_saas                     # disco local não conta como Nexor
 
 
 def test_dry_run_so_lista():

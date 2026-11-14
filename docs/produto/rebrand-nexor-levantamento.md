@@ -64,7 +64,7 @@ concorrencia, decisao, divergencias, edital, juridico, preco) e `services/coleto
 | Recurso | Nome atual | Onde aparece | Proposta |
 |---|---|---|---|
 | Repositórios GitHub | `n4rch6pjt9-rgb/LicitaGym`, `Dashboard---LicitaGym`, `licitagym-coletor-sistema-s` | `api-syncs` (`REPO_PADRAO`), `sentinela_observar.py`, workflows, docs | **decidir com o Marcelo**; GitHub redireciona após renome, mas `GITHUB_ACTIONS_REPO`, integração Supabase ↔ GitHub e branches de preview precisam ser reconferidas |
-| Projeto Supabase | `ifaiagegyicjzlpskafh` | CLAUDE.md, runbooks | **manter** (id imutável; não contém a marca) |
+| Projeto Supabase | `wrfumpboqablxkjmllfp` | CLAUDE.md, runbooks | **manter** (id imutável; não contém a marca) |
 | Projeto GCP / Cloud Run | `licitagym` (`southamerica-east1`) | `enfileirar-sestsenat.ts`, `sentinela_observar.py`, README do coletor | **manter** (id de projeto GCP não muda) |
 | Buckets GCS | `licitagym-documentos`, `licitagym-docs` | `arquivo_raw.py`, testes, README | **manter** (renome = cópia de dados) |
 | Worker Cloudflare | `licitagym-dashboard` (`*.licitagym.workers.dev`) | Dashboard `wrangler.jsonc`, backend `saude-alerta.sh` | **decidir com o Marcelo** |

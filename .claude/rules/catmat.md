@@ -30,7 +30,7 @@ O escopo é decidido pelo texto do item no Termo de Referência (e no edital); o
 ## Alto ([BLOQUEANTE]) ao revisar
 - `codigoItem` usado como `codigoPdm` (ou vice-versa). Vários itens compartilham um PDM; características diferenciam itens do mesmo PDM.
 - Identidade do E7 dependente de `codigoValorCaracteristica` preenchido (pode ser NULL) ou NULL convertido em `0`/`''`/`'N/A'`.
-- Taxonomia derivada do LicitaGym (Musculação/Cárdio/Acessórios) sobrescrevendo dado oficial.
+- Taxonomia derivada do Nexor (Musculação/Cárdio/Acessórios) sobrescrevendo dado oficial.
 
 ## [IMPORTANTE]
 - Classificação não determinística ou não idempotente; ausência de campo para edição manual e de provenance/confiança no dado derivado.

@@ -1,7 +1,7 @@
-# Inventário de dados — LicitaGym
+# Inventário de dados — Nexor
 
 **Data:** 2026-09-19  
-**Projeto Supabase:** `ifaiagegyicjzlpskafh`  
+**Projeto Supabase:** `wrfumpboqablxkjmllfp`  
 **Método:** `count(*)` exato via MCP (não `pg_stat` estimado)  
 **Reexecutar:** `supabase/sql/inventario_dados.sql` — divergência vs este arquivo = alarme de catálogo desatualizado
 

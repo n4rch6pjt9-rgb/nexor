@@ -4,7 +4,7 @@
 # Usado por .github/workflows/saude.yml. Teste local sem GitHub: DRY_RUN=1 SAUDE_JSON=arquivo.json scripts/saude-alerta.sh
 #
 # Entradas (env):
-#   SUPABASE_PROJECT  ref do projeto (padrão ifaiagegyicjzlpskafh)
+#   SUPABASE_PROJECT  ref do projeto (padrão wrfumpboqablxkjmllfp)
 #   SAUDE_TOKEN       SYNC_CRON_SECRET (Bearer da api-saude)            — obrigatório sem SAUDE_JSON
 #   SAUDE_APIKEY      chave publishable (header apikey). Sem ela o gateway responde 500
 #                     apikey.authorization.error=invalid e a função nem executa.
@@ -13,7 +13,7 @@
 #   DRY_RUN=1         só imprime o que faria no GitHub
 set -euo pipefail
 
-PROJ="${SUPABASE_PROJECT:-ifaiagegyicjzlpskafh}"
+PROJ="${SUPABASE_PROJECT:-wrfumpboqablxkjmllfp}"
 FN="https://${PROJ}.supabase.co/functions/v1"
 DASH="${DASHBOARD_URL:-https://licitagym-dashboard.licitagym.workers.dev}"
 ROTULO="alerta-operacional"

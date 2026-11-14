@@ -1,6 +1,6 @@
 {
-  "project": "ifaiagegyicjzlpskafh",
-  "base": "https://ifaiagegyicjzlpskafh.supabase.co/functions/v1",
+  "project": "wrfumpboqablxkjmllfp",
+  "base": "https://wrfumpboqablxkjmllfp.supabase.co/functions/v1",
   "idempotency_probe_keys": [
     "r1-smoke-arb-api-pncp-pca",
     "r1-smoke-badcron-api-pncp-pca",

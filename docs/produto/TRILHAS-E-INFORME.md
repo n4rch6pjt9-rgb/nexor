@@ -1,13 +1,13 @@
 # Trilhas e informe: a descoberta de oportunidades como auditoria contínua
 
-<!-- Documento interno de arquitetura de produto. Nome interno: LicitaGym. Nome externo (tela, e-mail, informe,
+<!-- Documento interno de arquitetura de produto. Nome interno: Nexor. Nome externo (tela, e-mail, informe,
 material para cliente): Nexor Licitações. Mudança de escopo derivada daqui passa pelo ESCOPO.md e pelo ok do Marcelo. -->
 
 - **Dono:** Marcelo Rosas
 - **Status:** proposta (11/11/2026)
 - **Módulo do `ESCOPO.md`:** 1 (Radar de oportunidades), com a trilha de escopo alimentando o módulo 3 (spec 0032,
   fase 3)
-- **Nome:** documentação interna continua como LicitaGym. Todo texto que o cliente vê (informe, e-mail, rótulo de
+- **Nome:** documentação interna continua como Nexor. Todo texto que o cliente vê (informe, e-mail, rótulo de
   alerta) usa **Nexor Licitações**.
 
 ## Por que este documento
@@ -22,7 +22,7 @@ A Alice não é uma fonte que podemos consumir: o acesso direto é restrito às 
 (nota 1, p. 4), e as rotas `/alice/*` da API do Compras.gov.br exigem login de usuário criado por administrador
 (OpenAPI conferido em 10/11/2026). O que aproveitamos é o **desenho**, com o ponto de vista invertido:
 
-| | Alice (CGU) | LicitaGym / Nexor Licitações |
+| | Alice (CGU) | Nexor / Nexor Licitações |
 |---|---|---|
 | Quem usa | auditor | fornecedor (tenant) |
 | Pergunta | "esta compra tem risco?" | "esta compra é para mim, e o que faço com ela?" |

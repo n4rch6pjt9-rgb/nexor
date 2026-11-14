@@ -2,7 +2,7 @@
 
 <!-- Mudança neste arquivo exige ok do Marcelo. -->
 
-Como usar o Claude no Cowork (sessão na nuvem, ligada ao Projeto LicitaGym) junto com o Claude Code no repositório,
+Como usar o Claude no Cowork (sessão na nuvem, ligada ao Projeto Nexor) junto com o Claude Code no repositório,
 fase por fase. Modelos de cada etapa: `docs/produto/PLANO-MODELOS.md`. Ordem das specs:
 `docs/produto/BACKEND-CONFIGURACOES.md` e `docs/produto/ESCOPO.md`.
 
@@ -25,10 +25,10 @@ arquivo (`ESCOPO.md`, spec aprovada) antes de o outro agir.
 | # | Ação | Quem | Modelo | Situação (20/10) |
 |---|---|---|---|---|
 | 0.1 | Merge de #406 → #407 → PR deste plano (merge commit) e os passos manuais do #406 (`.gitignore`, `git rm` dos logs do claude-mem, passo de CI) | Marcelo + Claude Code | N0 `haiku` | pendente |
-| 0.2 | Adicionar `LicitaGym` e `Dashboard---LicitaGym` às fontes da sessão do Cowork. Sem o repositório nas fontes, o Cowork só publica pela API do GitHub, reenviando cada arquivo inteiro (caro em tokens, não apaga arquivo nem edita workflow); com o repositório nas fontes, publica por `git push` | Marcelo | — | feito (os dois salvos no Projeto) |
+| 0.2 | Adicionar `Nexor` e `Dashboard---LicitaGym` às fontes da sessão do Cowork. Sem o repositório nas fontes, o Cowork só publica pela API do GitHub, reenviando cada arquivo inteiro (caro em tokens, não apaga arquivo nem edita workflow); com o repositório nas fontes, publica por `git push` | Marcelo | — | feito (os dois salvos no Projeto) |
 | 0.3 | Aplicar o frontmatter `model`/`effort` da tabela do `PLANO-MODELOS.md` nos agentes, skills e comandos dos dois repositórios | Claude Code | N1 `sonnet` | pendente |
 | 0.4 | No Dashboard: `CLAUDE.md` apontando para o `AGENTS.md` do backend; R1–R4 resumidas na skill `ciclo-janelas` | Claude Code | N1 `sonnet` | pendente |
-| 0.5 | Projeto LicitaGym no claude.ai com `docs/produto/instrucoes-projeto-claude-ai.md` e os arquivos de conhecimento | Marcelo | — | pendente |
+| 0.5 | Projeto Nexor no claude.ai com `docs/produto/instrucoes-projeto-claude-ai.md` e os arquivos de conhecimento | Marcelo | — | pendente |
 | 0.6 | Tarefas agendadas do Cowork (seção "Recorrente") | Cowork | N0 | feito |
 
 **Saída:** `/context` mostra `CLAUDE.md`, `AGENTS.md` e `regras-negocio.md`; os agentes têm `model` declarado.
@@ -38,7 +38,7 @@ arquivo (`ESCOPO.md`, spec aprovada) antes de o outro agir.
 Risco baixo: serve para calibrar o plano de modelos com números reais. Issue: #408.
 
 1. Cowork: confere a spec contra a `main` (arquivos citados existem) e abre a issue. N0. **Feito (#408).**
-2. Claude Code (LicitaGym): `/implement` de K-5/K-6 (`etapas_reordenar`, `versao`). `opusplan`; `revisor-codigo` e
+2. Claude Code (Nexor): `/implement` de K-5/K-6 (`etapas_reordenar`, `versao`). `opusplan`; `revisor-codigo` e
    `revisor-seguranca`. PR em draft.
 3. Marcelo: merge do backend. Cowork: `verificar-producao` (agendada para logo depois do merge). N0.
 4. Claude Code (Dashboard): `frontend-dashboard` para K-1 a K-4, `ux-ui-licitagym` antes do código. N1.

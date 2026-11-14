@@ -9,7 +9,7 @@
 
 ## 1. Visão Geral e Motivação
 
-O LicitaGym monitora oportunidades públicas e necessita transformar movimentações oficiais em ações operacionais para a equipe comercial e de licitações. No PNCP, cada compra registra um histórico de manutenção (`/historico`) com centenas de eventos (retificações de itens, publicação de editais, termos aditivos, atas, anulações e homologações).
+O Nexor monitora oportunidades públicas e necessita transformar movimentações oficiais em ações operacionais para a equipe comercial e de licitações. No PNCP, cada compra registra um histórico de manutenção (`/historico`) com centenas de eventos (retificações de itens, publicação de editais, termos aditivos, atas, anulações e homologações).
 
 Em certames reais, um único pregão pode gerar centenas de eventos repetitivos em um mesmo dia (exemplo auditado: Pregão 90010/2026 de Santa Fé do Sul gerou **151 retificações de itens** no mesmo minuto ao homologar resultados). Se cada evento gerasse uma tarefa isolada, a equipe seria inundada por notificações inoperantes.
 

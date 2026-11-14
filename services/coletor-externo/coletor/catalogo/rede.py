@@ -14,7 +14,7 @@ from urllib.parse import urljoin, urlsplit
 import requests
 
 # O mesmo UA de coletor.catalogos.Coletor. Conferido por teste.
-UA = "LicitaGymBot/0.1 (catalogo de fabricantes; contato via site LicitaGym)"
+UA = "LicitaGymBot/0.1 (catalogo de fabricantes; contato via site Nexor)"
 
 _CGNAT = ipaddress.ip_network("100.64.0.0/10")
 _ULA = ipaddress.ip_network("fc00::/7")

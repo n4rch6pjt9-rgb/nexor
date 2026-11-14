@@ -265,7 +265,7 @@ export function linkTargetClasses(
   const requested = body.classe_catmat?.trim();
   if (!requested) return { ok: true, classes: allowed };
   if (!allowed.includes(requested)) {
-    return { ok: false, reason: `Classe fora do escopo LicitaGym: ${requested}` };
+    return { ok: false, reason: `Classe fora do escopo Nexor: ${requested}` };
   }
   return { ok: true, classes: [requested] };
 }
@@ -288,7 +288,7 @@ export function resolveCatmatIngestTargets(
     if (!isPolicyPair(grupo, classe, policy)) {
       return {
         ok: false,
-        reason: `CATMAT fora do escopo LicitaGym: ${grupo}/${classe}`,
+        reason: `CATMAT fora do escopo Nexor: ${grupo}/${classe}`,
       };
     }
     return { ok: true, pairs: [{ grupo, classe }] };

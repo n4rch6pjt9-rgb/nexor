@@ -1,4 +1,4 @@
-"""Sync state tracking and checkpoint/resume management for LicitaGym collectors.
+"""Sync state tracking and checkpoint/resume management for Nexor collectors.
 
 Provides durable state recording:
 - States: 'running' | 'completed' | 'failed_partial' | 'failed'

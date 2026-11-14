@@ -1,6 +1,6 @@
 # Contrato: Edge Function `api-dashboard-oportunidades`
 
-Documentação da Edge Function de leitura de oportunidades para o Dashboard LicitaGym.
+Documentação da Edge Function de leitura de oportunidades para o Dashboard Nexor.
 
 O contrato completo de requisições, respostas, parâmetros e tratamento de erros está disponível em:
 [`supabase/functions/api-dashboard-oportunidades/README.md`](../supabase/functions/api-dashboard-oportunidades/README.md).

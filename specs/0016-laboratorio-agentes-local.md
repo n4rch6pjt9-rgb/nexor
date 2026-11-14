@@ -12,7 +12,7 @@
 ## Problema
 
 - **Só existe produção.** O merge na `main` aplica a migration e republica todas as Edge Functions no projeto
-  `ifaiagegyicjzlpskafh` (ver `CLAUDE.md`, "Ambientes e entrega"). Não há lugar para ver o efeito de uma regra nova
+  `wrfumpboqablxkjmllfp` (ver `CLAUDE.md`, "Ambientes e entrega"). Não há lugar para ver o efeito de uma regra nova
   sobre licitações reais antes de o cliente ver.
 - **As correções chegam lentas e aparecem como "ajuste de interpretação" na UI.** Dois casos reais:
   - **135 (Baraúna, PE 016/2026):** uma suspensão antiga prevaleceu sobre a republicação, e a fase ficou

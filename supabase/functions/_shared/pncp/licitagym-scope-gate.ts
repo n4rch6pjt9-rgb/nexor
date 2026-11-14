@@ -19,14 +19,14 @@ export function assertPcaClassificacoesInScope(codigos: string[]): string | null
   const allowed = new Set(defaultPcaClassificacoes());
   const out = codigos.filter((c) => !allowed.has(c));
   if (!out.length) return null;
-  return `Classificacao PCA fora do escopo LicitaGym: ${out.join(", ")}`;
+  return `Classificacao PCA fora do escopo Nexor: ${out.join(", ")}`;
 }
 
 export function assertCatmatClasseInScope(codigoGrupo: number, codigoClasse: number): string | null {
   if (!isStrictLicitagymScope()) return null;
   if (isCatalogoCatmatClasseAllowed(codigoGrupo, codigoClasse)) return null;
   const pares = effectiveClasses().map((rule) => `${rule.grupo}/${rule.classe}`).join(", ");
-  return `CATMAT fora do escopo LicitaGym (${pares}): ${codigoGrupo}/${codigoClasse}`;
+  return `CATMAT fora do escopo Nexor (${pares}): ${codigoGrupo}/${codigoClasse}`;
 }
 
 export function nationalPncpSyncGate(resource: string) {
@@ -34,7 +34,7 @@ export function nationalPncpSyncGate(resource: string) {
     {
       status: "blocked",
       reason:
-        `Sync nacional "${resource}" fora do escopo LicitaGym (classes ${effectiveClassCodes().join(", ")})`,
+        `Sync nacional "${resource}" fora do escopo Nexor (classes ${effectiveClassCodes().join(", ")})`,
       hint:
         "Pipeline escopo: sync-compras-catmat → sync-pncp-pca → link-catmat-pca. Override: PNCP_NATIONAL_SYNC_ENABLED=true",
       scope: {

@@ -1,6 +1,6 @@
 -- Inventário de linhas — LicitaGym (Fase 0 do catálogo de perguntas)
 -- Um statement. Reexecutar após cada carga de sync; comparar com docs/pncp/inventario-dados.md
--- Projeto: ifaiagegyicjzlpskafh | Gerado: 2026-09-19
+-- Projeto: wrfumpboqablxkjmllfp | Gerado: 2026-09-19
 
 WITH counts AS (
   SELECT 'public.pca_planos' AS tabela, count(*)::bigint AS linhas FROM public.pca_planos

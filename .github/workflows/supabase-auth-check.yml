@@ -24,7 +24,7 @@ jobs:
           from urllib.request import HTTPRedirectHandler, Request, build_opener
 
           # Destino fixo: nenhuma chave de banco e nenhuma chamada de escrita.
-          PROJECT_REF = "ifaiagegyicjzlpskafh"
+          PROJECT_REF = "wrfumpboqablxkjmllfp"
           URL = f"https://api.supabase.com/v1/projects/{PROJECT_REF}/functions"
 
           class NoRedirect(HTTPRedirectHandler):

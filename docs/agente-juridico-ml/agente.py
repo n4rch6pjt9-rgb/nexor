@@ -1,5 +1,5 @@
 """
-Agente Jurídico LicitaGym - Interface Principal
+Agente Jurídico Nexor - Interface Principal
 
 Integra todos os módulos para fornecer:
 - Consultas em linguagem natural
@@ -314,7 +314,7 @@ def criar_api():
             yield
 
         app = FastAPI(
-            title="Agente Juridico LicitaGym",
+            title="Agente Juridico Nexor",
             description="API para consultas juridicas sobre legislacao de licitacoes",
             version="1.1.0",
             lifespan=lifespan,

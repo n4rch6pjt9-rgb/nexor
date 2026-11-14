@@ -1,6 +1,6 @@
 ---
 name: nova-migration
-description: Como escrever uma migration do LicitaGym (idempotente, ACL explícita, RLS, checagem). Use antes de criar ou alterar qualquer arquivo em supabase/migrations/.
+description: Como escrever uma migration do Nexor (idempotente, ACL explícita, RLS, checagem). Use antes de criar ou alterar qualquer arquivo em supabase/migrations/.
 ---
 
 # Nova migration

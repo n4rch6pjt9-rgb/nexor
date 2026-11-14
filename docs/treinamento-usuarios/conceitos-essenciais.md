@@ -71,4 +71,4 @@ O SKU identifica o produto na sua empresa. O **CATMAT** é a ponte para as compr
 O **PDM** (Padrão Descritivo de Material) agrupa itens parecidos. Ele pode vir de duas formas:
 
 - **PDM informado na origem:** o próprio órgão informou;
-- **PDM inferido pelo LicitaGym:** classificamos pela descrição. Nunca é chamado de "oficial".
+- **PDM inferido pelo Nexor:** classificamos pela descrição. Nunca é chamado de "oficial".

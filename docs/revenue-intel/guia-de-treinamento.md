@@ -96,7 +96,7 @@ O SKU identifica o produto no cliente; o CATMAT permite o cruzamento com dados d
 ## 8. Módulo 5 — PDM
 
 - **PDM informado na origem:** a fonte informou.
-- **PDM inferido pelo LicitaGym:** classificado por descrição ou outra regra. Nunca vira "PDM oficial".
+- **PDM inferido pelo Nexor:** classificado por descrição ou outra regra. Nunca vira "PDM oficial".
 
 Limitação atual: 3.331 itens PCA; só 225 com `pdm_codigo_origem`; `codigo_pdm` vazio. Grande parte da classificação depende de inferência.
 
@@ -264,7 +264,7 @@ O [Catálogo de tarefas](../tarefas/catalogo-tarefas-14133.md) lista 84 tarefas 
 | 1 | PCA do órgão X, R$ 1,2 mi, equipamentos fitness, contratação prevista em 90 dias, nenhum edital | MONITORAR — prioridade potencialmente alta. Há sinal de demanda planejada de R$ 1,2 mi, mas nenhuma oportunidade acionável verificada. |
 | 2 | Fornecedor venceu 3 de 6 resultados | "3 vitórias em 6 resultados, 50%, N=6. Amostra pequena; percentual apenas descritivo." |
 | 3 | Consulta ao portal falhou | "Não verificado — falha na consulta." Nunca 0. |
-| 4 | PDM não veio da fonte, descrição indica grama sintética | "PDM 18481 inferido pelo LicitaGym a partir da descrição." |
+| 4 | PDM não veio da fonte, descrição indica grama sintética | "PDM 18481 inferido pelo Nexor a partir da descrição." |
 | 5 | Preço vencedor anterior: R$ 2.779,46/t | "Referência histórica; comparabilidade deve ser validada (especificação, quantidade, local, frete…)." |
 | 6 | Cliente ficou em 2º num pregão homologado; o vencedor ainda não assinou | MONITORAR. Se o vencedor não assinar, a Administração pode convocar o cliente nas condições do vencedor (tarefa 14133-F07-T04, art. 90, § 2º). |
 

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Pre-commit do LicitaGym: lint e testes afetados só pelos arquivos do commit (meta: < 30 s).
+# Pre-commit do Nexor: lint e testes afetados só pelos arquivos do commit (meta: < 30 s).
 #   0. higiene do commit                  (scripts/ci/checar-higiene.sh: conflito, arquivo proibido, raiz)
 #   1. lint dos arquivos staged           (scripts/ci/lint-alterados.sh)
 #   2. deno check das funções tocadas     (scripts/ci/deno-check-funcoes.sh; _shared tocado = todas)

@@ -1,5 +1,5 @@
 """
-Módulo de Ingestão de Legislação para Agente Jurídico LicitaGym
+Módulo de Ingestão de Legislação para Agente Jurídico Nexor
 
 Responsável por:
 - Coleta de leis, decretos, portarias e regulamentos

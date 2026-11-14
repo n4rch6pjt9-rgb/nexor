@@ -1,6 +1,6 @@
 # Backend da área de Configurações: o que existe e o que falta
 
-Base: repositório `n4rch6pjt9-rgb/LicitaGym` (`main`, commit `8436bdd`), banco de produção lido em 20/10/2026
+Base: repositório `nexor-licitacoes/nexor` (`main`, commit `8436bdd`), banco de produção lido em 20/10/2026
 (só leitura) e workspace do Dashboard anexado.
 
 ## Decisões de 20/10

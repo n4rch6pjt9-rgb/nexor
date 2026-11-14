@@ -1,4 +1,4 @@
-# Agente Jurídico LicitaGym - ML para Legislação
+# Agente Jurídico Nexor - ML para Legislação
 
 [![SentenceTransformers](https://img.shields.io/badge/Embeddings-SentenceTransformers-blue)](https://www.sbert.net/)
 [![Python](https://img.shields.io/badge/Python-3.10+-blue)](https://python.org/)
@@ -234,4 +234,4 @@ Este projeto está sob licença MIT. Veja [LICENSE](LICENSE) para detalhes.
 
 ---
 
-**LicitaGym** - IA para licitações de equipamentos fitness 🏋️‍♂️⚖️
+**Nexor** - IA para licitações de equipamentos fitness 🏋️‍♂️⚖️

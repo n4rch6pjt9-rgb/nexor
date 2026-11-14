@@ -9,7 +9,7 @@ import urllib.error
 import urllib.request
 from pathlib import Path
 
-BASE = "https://ifaiagegyicjzlpskafh.supabase.co/functions/v1"
+BASE = "https://wrfumpboqablxkjmllfp.supabase.co/functions/v1"
 ROOT = Path(__file__).resolve().parents[1]
 OUT = Path(__file__).resolve().parent / "_r1_edge_smoke_results.json"
 
@@ -270,7 +270,7 @@ def main() -> int:
     )
 
     summary = {
-        "project": "ifaiagegyicjzlpskafh",
+        "project": "wrfumpboqablxkjmllfp",
         "base": BASE,
         "idempotency_probe_keys": idem_probe_keys,
         "results": results,

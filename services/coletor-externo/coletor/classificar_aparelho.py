@@ -1,4 +1,4 @@
-"""Classificador por regras do dicionário de aparelhos LicitaGym (baseline do Agente de Edital).
+"""Classificador por regras do dicionário de aparelhos Nexor (baseline do Agente de Edital).
 
 Fonte editável: docs/agente-editais/dicionario-aparelhos/ (dados.py → gerar.py).
 Cópia operacional: coletor/data/dicionario-aparelhos-v0.3.json.

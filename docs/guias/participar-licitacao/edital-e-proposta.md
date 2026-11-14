@@ -18,7 +18,7 @@ Some custo de compra, regime tributário, frete, embalagem, garantia, custo fina
 
 Defina **preço mínimo próprio** antes da sessão. Lance só para “ganhar o concorrente” vira contrato no prejuízo.
 
-LicitaGym pode mostrar contexto de PCA/catálogo; **não** calcula lance.
+Nexor pode mostrar contexto de PCA/catálogo; **não** calcula lance.
 
 ## Pregão eletrônico (sessão)
 

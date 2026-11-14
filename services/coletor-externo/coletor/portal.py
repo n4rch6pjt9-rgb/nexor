@@ -277,9 +277,9 @@ def processo_para_linha(d: dict, modulo: int, origem: str = "manual", agora: dat
     }
 
 
-# Escopo LicitaGym: academia, musculação, cardio, esportes e lazer esportivo.
+# Escopo Nexor: academia, musculação, cardio, esportes e lazer esportivo.
 def no_escopo_fitness(d: dict) -> bool:
-    """Escopo LicitaGym (classe CATMAT 7830) — regras em coletor/escopo.py."""
+    """Escopo Nexor (classe CATMAT 7830) — regras em coletor/escopo.py."""
     from .escopo import classificar
     texto = " ".join(str(d.get(k) or "") for k in ("sDsObjeto", "sDsDescricao"))
     return classificar(texto) is not None

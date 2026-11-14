@@ -1,5 +1,5 @@
 """
-Modelo de Machine Learning para Agente Jurídico LicitaGym
+Modelo de Machine Learning para Agente Jurídico Nexor
 
 Responsável por:
 - Geração de embeddings de textos jurídicos (SentenceTransformers; TF removido do hot path)

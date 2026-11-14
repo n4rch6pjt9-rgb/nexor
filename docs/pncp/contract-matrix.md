@@ -160,7 +160,7 @@ consumindo JSON (nunca o CSV).
    (características), ~500 (classe). Um loop de paginação genérico erra a conta.
 3. **Volume exige fila, não Edge Function.** 1,73 M características e 344 k itens não cabem no
    `fetchWithTimeout` de 45 s de `_shared/pncp/retry.ts`. Usar `private.job_queue` com checkpoint
-   por página. No recorte LicitaGym (classe 7830) o número cai muito, mas o sync deve assumir o
+   por página. No recorte Nexor (classe 7830) o número cai muito, mas o sync deve assumir o
    caso geral.
 4. **A conclusão de "PGC Detalhe sem dados" não se sustenta.** O JSON foi testado com Linhares,
    MEC e Saúde; o CSV **do mesmo endpoint** foi testado com Barueri/2025 e devolveu 1.298 bytes de
