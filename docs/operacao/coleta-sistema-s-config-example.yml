@@ -1,79 +1,69 @@
-# Exemplo de configuração de portais do Sistema S
+# Exemplo de catálogo de fontes do Sistema S
+# Exemplo declarativo para a implementação da spec 0069; ainda não é carregado pelo workflow.
+# URLs e slugs abaixo correspondem às três fontes explicitamente discutidas.
+# Não inclua aqui valores PF/PJ, consentimento, tokens ou qualquer secret.
 
-# Este arquivo é um exemplo de configuração do catálogo de fontes do Sistema S.
-# Ele não substitui o banco nem o workflow, mas documenta a estratégia de
-# adaptação por portal e por tecnologia.
-
+versao: 1
 fontes:
   - slug: sescdn
-    nome: Sesc DN
+    nome: Sesc Departamento Nacional
     tecnologia: paradigma
-    base_url: https://egov-br.paradigmabs.com.br/sescdn
-    mural_path: /portal/Mural.aspx
-    webservice_path: /portal/WebService/Servicos.asmx
-    cadastro_visitante: true
-    documentos_habilitados: true
-    documentos_para_embedding: true
+    perfil: paradigma_egov_br
+    base_url: https://egov-br.paradigmabs.com.br/sescdn/portal
+    mural_url: https://egov-br.paradigmabs.com.br/sescdn/portal/Mural.aspx
+    webservice_path: /WebService/Servicos.asmx
+    coleta_oportunidades: true
+    documentos:
+      habilitados: true
+      cadastro_visitante: oficial
+      endereco_obrigatorio: null # preencher após confirmar no próprio formulário/fluxo do portal
+      finalidade: armazenamento_e_embedding
     etapas:
       - descoberta
       - carga
       - documentos
-    observacoes:
-      - URL no domínio Paradigma com contexto de portal específico.
-      - Cadastro de visitante pode ser requerido para anexos.
 
   - slug: firjan
     nome: Firjan
     tecnologia: paradigma
-    base_url: https://portaldecompras.firjan.com.br
-    mural_path: /portal/Mural.aspx
-    webservice_path: /portal/WebService/Servicos.asmx
-    cadastro_visitante: true
-    documento_endereco_obrigatorio: true
-    documentos_habilitados: true
-    documentos_para_embedding: true
+    perfil: paradigma_firjan
+    base_url: https://portaldecompras.firjan.com.br/portal
+    mural_url: https://portaldecompras.firjan.com.br/portal/Mural.aspx
+    webservice_path: /WebService/Servicos.asmx
+    coleta_oportunidades: true
+    documentos:
+      habilitados: true
+      cadastro_visitante: oficial
+      endereco_obrigatorio: null # validar requisitos atuais do portal; não aplicar automaticamente às outras fontes
+      finalidade: armazenamento_e_embedding
     etapas:
       - descoberta
       - carga
       - documentos
-    observacoes:
-      - Exige cadastro de visitante mais completo em alguns casos.
-      - A coleta da oportunidade não deve ser bloqueada por pendência de documento.
 
   - slug: sescsp
     nome: Sesc SP
     tecnologia: paradigma
-    base_url: https://scr360.paradigmabs.com.br/sescsp
-    mural_path: /portal/Mural.aspx
-    webservice_path: /portal/WebService/Servicos.asmx
-    cadastro_visitante: true
-    documentos_habilitados: true
-    documentos_para_embedding: true
+    perfil: paradigma_scr360
+    base_url: https://scr360.paradigmabs.com.br/sescsp/portal
+    mural_url: https://scr360.paradigmabs.com.br/sescsp/portal/Mural.aspx
+    webservice_path: /WebService/Servicos.asmx
+    coleta_oportunidades: true
+    documentos:
+      habilitados: true
+      cadastro_visitante: oficial
+      endereco_obrigatorio: null # preencher após validação do fluxo deste portal
+      finalidade: armazenamento_e_embedding
     etapas:
       - descoberta
       - carga
       - documentos
-    observacoes:
-      - Compartilha a mesma tecnologia do Paradigma com contexto de portal específico.
 
-  - slug: fieb
-    nome: FIEB
-    tecnologia: paradigma
-    base_url: https://www.fieb.org.br
-    mural_path: /portal/Mural.aspx
-    webservice_path: /portal/WebService/Servicos.asmx
-    cadastro_visitante: false
-    documentos_habilitados: false
-    documentos_para_embedding: false
-    etapas:
-      - descoberta
-      - carga
-    observacoes:
-      - Exemplo de fonte que não exige documentos para a rotina principal.
-
-# Observações operacionais:
-# - O campo `tecnologia` identifica o adaptador principal.
-# - O campo `slug` identifica a fonte no workflow e nas tabelas de monitoramento.
-# - Os documentos não devem ser um gate para coleta da oportunidade.
-# - O campo `documentos_para_embedding` indica que o arquivo pode ser baixado e
-#   armazenado para processamento posterior, sem bloquear a oportunidade.
+# Contrato de execução proposto:
+# - `tecnologia` escolhe a família de protocolo; `perfil` seleciona diferenças de host/contrato comprovadas.
+# - Os perfis não devem ser considerados três protocolos distintos até validação de paths/payloads/respostas.
+# - `documentos.habilitados` não condiciona `coleta_oportunidades`.
+# - Cadastro visitante lê os secrets/variables VISITANTE_* do ambiente de execução, nunca deste arquivo.
+# - Sem cadastro válido, a oportunidade persiste; o documento fica pendente com motivo seguro para retry.
+# - Arquivo armazenado é entrada do fluxo posterior de embeddings; falha de embedding não desfaz download/oportunidade.
+# - Workflow deve continuar usando orçamentos/limites adequados e adicionar etapa documental sem exceder timeout do job.
