@@ -31,6 +31,13 @@ nomes exatos (`dataInical` × `dataInicio`) e enums (`codigoModalidadeContrataca
 ## Identificadores oficiais
 - `codigoItem` ≠ `codigoPdm`. Vários itens CATMAT podem ter o mesmo PDM; características diferenciam itens do mesmo PDM.
 - Preserve UASG, número da compra, modalidade, órgão, unidade compradora e IDs da fonte, separados da chave interna.
+- Município tem identidade canônica global (`public.municipios`); códigos de cada fonte ficam em namespaces próprios.
+  `codigo_ibge` explícito (7 dígitos) pode resolver; `codigoMunicipio` do Compras.gov não é IBGE; `nome+UF` só gera
+  candidato pendente; `PNCP suggest.id` só é promovido após cruzamento com `Municipio.id`/`Municipio.codigoIbge`
+  da unidade oficial. Reutilize `coletor.municipios.MunicipioResolver`, `public.resolver_municipio` e
+  `public.resolver_municipio_unidade_pncp` (só vínculo único CNPJ+unidade+município+UF). Preferências de tenant
+  guardam `municipios.id`; filtros de fonte expandem apenas referências externas `verificado` via
+  `public.listar_ids_municipio_fonte` no backend.
 - Não sobrescreva em silêncio dado de fonte oficial. Ao normalizar, guarde o original e a proveniência
   (origem, como reproduzir a importação, registro original).
 

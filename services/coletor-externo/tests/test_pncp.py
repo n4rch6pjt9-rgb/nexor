@@ -1097,3 +1097,38 @@ def test_cli_prioridades_validacao_argparse(monkeypatch):
     # Maiúsculas e espaços aceitos normalmente
     args = parser.parse_args(["--baixar-pendentes", "--prioridades", " LEADS , Monitorar "])
     assert args.prioridades == " LEADS , Monitorar "
+
+
+def test_coleta_vincula_municipio_pelo_codigo_ibge_sem_inferir_por_nome():
+    sb = _sb()
+    sb.rpc.return_value = [{"municipio_id": "municipio-uuid", "candidato_municipio_id": None,
+                           "status": "resolvido", "metodo_resolucao": "codigo_ibge"}]
+    compra = dict(COMPRA, codigo_ibge="3510609")
+
+    P.coletar(_pncp([compra]), sb, None, ["borracha granulada"], "todos", 1, 50,
+              com_resultados=False, baixar_arquivos=False, max_bytes=10**8, dry_run=False)
+
+    assert _lic(sb)["municipio_id"] == "municipio-uuid"
+    funcao, parametros = sb.rpc.call_args.args
+    assert funcao == "resolver_municipio"
+    assert parametros["p_fonte"] == "pncp"
+    assert parametros["p_codigo_ibge"] == "3510609"
+    assert parametros["p_identificador_verificado"] is True
+
+
+def test_coleta_resolve_municipio_por_unidade_oficial_quando_busca_so_traz_nome_uf():
+    sb = _sb()
+    sb.rpc.side_effect = [
+        [{"municipio_id": None, "candidato_municipio_id": "candidato-uuid",
+          "status": "candidato", "metodo_resolucao": "nome_uf"}],
+        [{"municipio_id": "municipio-uuid", "status": "resolvido", "unidades_encontradas": 1}],
+    ]
+    compra = dict(COMPRA, unidade_nome="Secretaria da Saúde - SESA")
+
+    P.coletar(_pncp([compra]), sb, None, ["borracha granulada"], "todos", 1, 50,
+              com_resultados=False, baixar_arquivos=False, max_bytes=10**8, dry_run=False)
+
+    assert _lic(sb)["municipio_id"] == "municipio-uuid"
+    assert [call.args[0] for call in sb.rpc.call_args_list] == [
+        "resolver_municipio", "resolver_municipio_unidade_pncp"
+    ]

@@ -52,6 +52,7 @@ import requests
 from .arquivo_raw import ArquivoRaw, ArquivoRawErro, fechar_todos
 from .destino import Armazenamento, Supabase, drenar_licitacao_match, env, parece_html, sha256
 from .proveniencia import ORIGENS, campos_proveniencia
+from .municipios import MunicipioResolver, municipio_id_resolvido
 from .paginacao import TAMANHO_PAGINA_MAX, avaliar_pagina, clamp_tamanho
 from . import escopo as _escopo
 from .catmat_codigo import (
@@ -1180,6 +1181,8 @@ def coletar(pncp: PNCP, sb: Supabase | None, arm: Armazenamento | None, termos: 
     resumo = {"encontradas": 0, "no_escopo": 0, "interesse_borracha": 0, "fora": 0,
               "gravadas": 0, "erros": 0}
     falhas: list[tuple[dict, str, str]] = []
+    # Resolução geográfica é enriquecimento aditivo; dry-run não chama banco nem cria referências.
+    municipio_resolver = MunicipioResolver(sb) if (sb is not None and not dry_run) else None
     # dry-run volta antes do upsert: a chave natural do item inclui licitacao_id, que só existe depois.
     arquivos_raw = None if dry_run else _abrir_arquivos_pncp(str(uuid.uuid4()))
 
@@ -1187,7 +1190,7 @@ def coletar(pncp: PNCP, sb: Supabase | None, arm: Armazenamento | None, termos: 
         try:
             _processar(pncp, sb, arm, c, termo, com_resultados, baixar_arquivos,
                        max_bytes, dry_run, resumo, modo, status_busca=st, agora=agora, mapa_catmat=mapa_catmat,
-                       arquivos_raw=arquivos_raw, origem=origem)
+                       arquivos_raw=arquivos_raw, origem=origem, municipio_resolver=municipio_resolver)
             return c, None
         except ArquivoRawErro:
             raise
@@ -1363,7 +1366,8 @@ def _enviar_raw(arquivos_raw: dict[str, ArquivoRaw] | None, tabela: str, chave: 
 
 def _processar(pncp, sb, arm, c, termo, com_resultados, baixar_arquivos, max_bytes, dry_run, resumo,
                modo=None, status_busca=None, agora=None, det=None, mapa_catmat=None,
-               arquivos_raw: dict[str, ArquivoRaw] | None = None, origem: str = "manual"):
+               arquivos_raw: dict[str, ArquivoRaw] | None = None, origem: str = "manual",
+               municipio_resolver: MunicipioResolver | None = None):
     """Coleta completa de uma compra: itens, resultados, detalhe e lista de arquivos do PNCP, gravados em
     licitacoes_externas, licitacao_itens, licitacao_resultados e licitacao_documentos.
     `det` = detalhe já consultado (recoletar_atualizadas); None consulta aqui.
@@ -1525,6 +1529,32 @@ def _processar(pncp, sb, arm, c, termo, com_resultados, baixar_arquivos, max_byt
     link = link_sistema_origem(c, det)
     if link:   # ausente não apaga um link já gravado
         linha["link_sistema_origem"] = link
+    if municipio_resolver is not None:
+        codigo_ibge = c.get("codigo_ibge") or c.get("codigoIbge")
+        reconciliacao = municipio_resolver.resolver(
+            fonte="pncp",
+            nome=c.get("municipio_nome"),
+            uf=c.get("uf"),
+            codigo_ibge=codigo_ibge,
+            namespace="codigo_ibge" if codigo_ibge not in (None, "") else None,
+            identificador_externo=codigo_ibge,
+            identificador_verificado=codigo_ibge not in (None, ""),
+            evidencias={
+                "endpoint": "/api/search/",
+                "numero_controle_pncp": c.get("numero_controle_pncp"),
+                "campo_codigo_ibge": "codigo_ibge" if c.get("codigo_ibge") is not None else "codigoIbge",
+            },
+        )
+        municipio_id = municipio_id_resolvido(reconciliacao)
+        if municipio_id is None:
+            municipio_id = municipio_resolver.resolver_por_unidade_pncp(
+                orgao_cnpj=c.get("orgao_cnpj"),
+                unidade_nome=c.get("unidade_nome"),
+                municipio_nome=c.get("municipio_nome"),
+                uf=c.get("uf"),
+            )
+        if municipio_id:
+            linha["municipio_id"] = municipio_id
     lic_id = sb.upsert("licitacoes_externas", linha, "fonte,codigo_externo")[0]["id"]
     _inc(resumo, "gravadas")
 

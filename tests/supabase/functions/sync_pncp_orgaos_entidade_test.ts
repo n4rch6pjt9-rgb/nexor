@@ -4,6 +4,13 @@
 // As colunas geradas são lidas das migrations, para que uma coluna gerada nova também seja coberta.
 import { assert, assertEquals } from "jsr:@std/assert@1";
 import { linhaEntidade } from "../../../supabase/functions/sync-pncp-orgaos/entidade.ts";
+import {
+  identificadorMunicipioFonte,
+  linhaUnidade,
+  municipioDaUnidade,
+  normalizarNomeMunicipio,
+} from "../../../supabase/functions/sync-pncp-orgaos/unidade.ts";
+
 
 const MIGRATIONS = new URL("../../../supabase/migrations/", import.meta.url);
 
@@ -37,5 +44,62 @@ Deno.test("#321: linha de entidades mantém os campos que o sync grava", () => {
     codigo_pncp: "00394429000100",
     cnpj: "00394429000100",
     tipo: "orgao",
+  });
+});
+
+Deno.test("PNCP UnidadeOrgaoDTO preserva Municipio.id separado de codigoIbge", () => {
+  const unidade = {
+    codigoUnidade: "05001",
+    nomeUnidade: "Secretaria da Saúde - SESA",
+    municipio: {
+      id: 4480,
+      nome: "Navegantes",
+      codigoIbge: "4211306",
+      uf: { siglaUF: "SC", nomeUF: "Santa Catarina" },
+    },
+  };
+  assertEquals(municipioDaUnidade(unidade), {
+    id: "4480",
+    nome: "Navegantes",
+    uf: "SC",
+    codigoIbge: "4211306",
+  });
+  assertEquals(linhaUnidade("orgao-uuid", unidade), {
+    orgao_id: "orgao-uuid",
+    codigo_unidade: "05001",
+    nome: "Secretaria da Saúde - SESA",
+    uf: "SC",
+    municipio_ibge: "4211306",
+  });
+});
+
+Deno.test("PNCP unidade não converte Municipio.id em municipio_ibge", () => {
+  const unidade = {
+    codigoUnidade: "0001",
+    nomeUnidade: "Unidade sem código IBGE",
+    municipio: { id: 4480, nome: "Navegantes", uf: { siglaUF: "SC" } },
+  };
+  assertEquals(linhaUnidade("orgao-uuid", unidade), {
+    orgao_id: "orgao-uuid",
+    codigo_unidade: "0001",
+    nome: "Unidade sem código IBGE",
+    uf: "SC",
+  });
+});
+
+Deno.test("normalização de município é compatível com a chave SQL", () => {
+  assertEquals(normalizarNomeMunicipio("São   José"), "sao jose");
+});
+
+
+Deno.test("Municipio.id usa namespace próprio e não é convertido em IBGE", () => {
+  const municipio = municipioDaUnidade({
+    municipio: { id: 4480, nome: "Navegantes", codigoIbge: "4211306", uf: { siglaUF: "SC" } },
+  });
+  assert(municipio);
+  assertEquals(identificadorMunicipioFonte(municipio), {
+    namespace: "municipio_id",
+    valor: "4480",
+    verificado: true,
   });
 });

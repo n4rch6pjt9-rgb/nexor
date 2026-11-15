@@ -18,6 +18,92 @@ import {
 } from "../_shared/pncp/postgrest-paginate.ts";
 import { upsertByHash } from "../_shared/pncp/upsert.ts";
 import { linhaEntidade } from "./entidade.ts";
+import { identificadorMunicipioFonte, linhaUnidade, municipioDaUnidade, normalizarNomeMunicipio } from "./unidade.ts";
+
+type ServiceClient = ReturnType<typeof createServiceClient>;
+type MunicipioCache = Map<string, string | null>;
+
+async function resolverMunicipioUnidade(
+  client: ServiceClient,
+  municipio: NonNullable<ReturnType<typeof municipioDaUnidade>>,
+  cnpj: string,
+  codigoUnidade: string,
+  cache: MunicipioCache,
+): Promise<{ municipioId: string | null; erros: string[] }> {
+  const chave = JSON.stringify([municipio.id, municipio.codigoIbge, municipio.nome, municipio.uf]);
+  if (cache.has(chave)) return { municipioId: cache.get(chave) ?? null, erros: [] };
+
+  const identificador = identificadorMunicipioFonte(municipio);
+  const { data, error } = await client.rpc("resolver_municipio", {
+    p_fonte: "pncp",
+    p_nome: municipio.nome,
+    p_uf: municipio.uf,
+    p_codigo_ibge: municipio.codigoIbge,
+    p_namespace: identificador.namespace,
+    p_identificador_externo: identificador.valor,
+    p_identificador_verificado: identificador.verificado,
+    p_evidencias: {
+      endpoint: `/orgaos/${cnpj}/unidades`,
+      codigo_unidade: codigoUnidade,
+      municipio_id_pncp: municipio.id,
+      codigo_ibge: municipio.codigoIbge,
+      contrato: "Municipio.id e Municipio.codigoIbge são campos distintos no PNCP Integração v3",
+    },
+  });
+  if (error) {
+    cache.set(chave, null);
+    return { municipioId: null, erros: [`resolver_municipio: ${error.message}`] };
+  }
+
+  const resultado = (Array.isArray(data) ? data[0] : data) as Record<string, unknown> | null;
+  const municipioId = resultado?.status === "resolvido" && typeof resultado.municipio_id === "string"
+    ? resultado.municipio_id
+    : null;
+  cache.set(chave, municipioId);
+  if (!municipioId || !municipio.nome || !municipio.uf) return { municipioId, erros: [] };
+
+  // O suggest do PNCP não documenta o tipo de items[].id. Só promovemos um alias pendente
+  // quando seu valor coincide com Municipio.id ou codigoIbge da unidade oficial.
+  const idsConfirmaveis = [...new Set([municipio.id, municipio.codigoIbge].filter((v): v is string => Boolean(v)))];
+  if (idsConfirmaveis.length === 0) return { municipioId, erros: [] };
+
+  const { data: referencias, error: referenciasError } = await client
+    .from("municipio_referencias_externas")
+    .select("valor_externo")
+    .eq("fonte", "pncp")
+    .eq("namespace", "suggest_municipio")
+    .in("status", ["pendente", "verificado"])
+    .eq("uf_observada", municipio.uf)
+    .eq("nome_normalizado", normalizarNomeMunicipio(municipio.nome))
+    .in("valor_externo", idsConfirmaveis);
+
+  const erros: string[] = [];
+  if (referenciasError) {
+    erros.push(`consulta suggest_municipio: ${referenciasError.message}`);
+    return { municipioId, erros };
+  }
+
+  for (const referencia of referencias ?? []) {
+    const { error: confirmarError } = await client.rpc("resolver_municipio", {
+      p_fonte: "pncp",
+      p_nome: municipio.nome,
+      p_uf: municipio.uf,
+      p_codigo_ibge: municipio.codigoIbge,
+      p_namespace: "suggest_municipio",
+      p_identificador_externo: String(referencia.valor_externo),
+      p_identificador_verificado: true,
+      p_evidencias: {
+        endpoint: `/orgaos/${cnpj}/unidades`,
+        codigo_unidade: codigoUnidade,
+        validado_contra: "Municipio.id ou Municipio.codigoIbge",
+        municipio_id_pncp: municipio.id,
+        codigo_ibge: municipio.codigoIbge,
+      },
+    });
+    if (confirmarError) erros.push(`confirmar suggest_municipio ${referencia.valor_externo}: ${confirmarError.message}`);
+  }
+  return { municipioId, erros };
+}
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
@@ -111,6 +197,7 @@ Deno.serve(async (req) => {
 
     const ORCAMENTO_PADRAO_MS = 90_000;
     const inicioMs = Date.now();
+    const municipiosResolvidos: MunicipioCache = new Map();
     let processados = 0;
     let interrompidoPorOrcamento = false;
 
@@ -197,6 +284,133 @@ Deno.serve(async (req) => {
             });
           } else {
             stats.orgaos_inseridas++;
+            const orgaoIdResult = await client
+              .from("orgaos")
+              .select("id, unidades_sync_at")
+              .eq("entidade_id", entidadeId)
+              .single();
+
+            if (orgaoIdResult.error || !orgaoIdResult.data?.id) {
+              stats.erros++;
+              await logSyncRequest(client, {
+                syncRunId: runId,
+                endpoint: `/orgaos/${cnpj}`,
+                parametros: { cnpj, tabela: "orgaos_select" },
+                erro: orgaoIdResult.error?.message ?? "orgao id ausente após upsert",
+              });
+            } else {
+              const orgaoId = String(orgaoIdResult.data.id);
+              const ultimaSyncUnidades = orgaoIdResult.data.unidades_sync_at
+                ? Date.parse(String(orgaoIdResult.data.unidades_sync_at))
+                : Number.NaN;
+              const TTL_UNIDADES_MS = 7 * 24 * 60 * 60 * 1000;
+              const precisaSincronizarUnidades = !Number.isFinite(ultimaSyncUnidades)
+                || Date.now() - ultimaSyncUnidades >= TTL_UNIDADES_MS;
+              const unidadesEndpoint = `/orgaos/${cnpj}/unidades`;
+              if (precisaSincronizarUnidades) {
+                try {
+                  let unidadesSemErro = true;
+                  let unidadesCompletas = true;
+                  const unidades = await integracao.getUnidades(cnpj);
+                  const unidadesRequestHash = await hashPayload({ cnpj });
+                  const unidadesContentHash = await sha256Hex(JSON.stringify(unidades));
+                  await storeSourceRecord(client, {
+                    syncRunId: runId,
+                    resourceType: "unidades",
+                    endpoint: unidadesEndpoint,
+                    requestHash: unidadesRequestHash,
+                    contentHash: unidadesContentHash,
+                    payload: unidades,
+                  });
+
+                  for (const unidadeRaw of unidades) {
+                    if (Date.now() - inicioMs >= ORCAMENTO_PADRAO_MS) {
+                      interrompidoPorOrcamento = true;
+                      unidadesCompletas = false;
+                      break;
+                    }
+                    const linha = linhaUnidade(orgaoId, unidadeRaw);
+                    if (!linha) {
+                      unidadesSemErro = false;
+                      stats.erros++;
+                      await logSyncRequest(client, {
+                        syncRunId: runId,
+                        endpoint: unidadesEndpoint,
+                        parametros: { cnpj, tabela: "unidades" },
+                        erro: "unidade sem codigoUnidade válido",
+                      });
+                      continue;
+                    }
+
+                    const codigoUnidade = String(linha.codigo_unidade);
+                    const municipio = municipioDaUnidade(unidadeRaw);
+                    if (municipio) {
+                      const resolucao = await resolverMunicipioUnidade(
+                        client,
+                        municipio,
+                        cnpj,
+                        codigoUnidade,
+                        municipiosResolvidos,
+                      );
+                      if (resolucao.municipioId) linha.municipio_id = resolucao.municipioId;
+                      for (const erro of resolucao.erros) {
+                        unidadesSemErro = false;
+                        stats.erros++;
+                        await logSyncRequest(client, {
+                          syncRunId: runId,
+                          endpoint: unidadesEndpoint,
+                          parametros: { cnpj, codigoUnidade, recurso: "municipio" },
+                          erro,
+                        });
+                      }
+                    }
+
+                    const unidadeResult = await upsertByHash(
+                      client,
+                      "unidades",
+                      { orgao_id: orgaoId, codigo_unidade: codigoUnidade },
+                      linha,
+                      { syncRunId: runId },
+                    );
+                    if (unidadeResult === "erro") {
+                      unidadesSemErro = false;
+                      stats.erros++;
+                      await logSyncRequest(client, {
+                        syncRunId: runId,
+                        endpoint: unidadesEndpoint,
+                        parametros: { cnpj, codigoUnidade, tabela: "unidades" },
+                        erro: "upsert unidades failed",
+                      });
+                    } else {
+                      stats.unidades_inseridas++;
+                    }
+                  }
+                  if (unidadesSemErro && unidadesCompletas) {
+                    const { error: syncStampError } = await client
+                      .from("orgaos")
+                      .update({ unidades_sync_at: new Date().toISOString() })
+                      .eq("id", orgaoId);
+                    if (syncStampError) {
+                      stats.erros++;
+                      await logSyncRequest(client, {
+                        syncRunId: runId,
+                        endpoint: unidadesEndpoint,
+                        parametros: { cnpj, tabela: "orgaos", campo: "unidades_sync_at" },
+                        erro: syncStampError.message,
+                      });
+                    }
+                  }
+                } catch (error) {
+                  stats.erros++;
+                  await logSyncRequest(client, {
+                    syncRunId: runId,
+                    endpoint: unidadesEndpoint,
+                    parametros: { cnpj, tabela: "unidades" },
+                    erro: error instanceof Error ? error.message : String(error),
+                  });
+                }
+              }
+            }
           }
         }
       } catch (error) {

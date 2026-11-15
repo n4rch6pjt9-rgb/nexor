@@ -136,6 +136,24 @@ export class PncpIntegracaoClient {
     return this.getJson(`/orgaos/${cnpj}`);
   }
 
+  /**
+   * Unidades do órgão. O DTO documenta Municipio.id (ID interno) e Municipio.codigoIbge
+   * como campos distintos; consumidores devem preservar ambos em namespaces separados.
+   * 204 significa órgão sem unidades cadastradas.
+   */
+  async getUnidades(cnpj: string, options: UnifiedFetchOptions = {}) {
+    const path = `/orgaos/${normalizeIntegracaoCnpj(cnpj)}/unidades`;
+    const resposta = await this.getJsonComStatus<unknown[]>(path, options);
+    if (resposta.status === 204) return [];
+    if (resposta.status < 200 || resposta.status >= 300) {
+      throw new Error(`PNCP integração ${path}: HTTP ${resposta.status}`);
+    }
+    if (!Array.isArray(resposta.body)) {
+      throw new Error(`PNCP integração ${path}: resposta não é uma lista de unidades`);
+    }
+    return resposta.body;
+  }
+
   async getCatalogos() {
     return this.getJson("/catalogos");
   }

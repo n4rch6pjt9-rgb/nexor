@@ -396,3 +396,61 @@ def test_arp_tamanho_pagina_constante():
     res = compras_arp.coletar(cli, None, pdms=[2640], data_min="2026-01-01", data_max="2026-12-31", dry_run=True)
     assert cli.pedidos == [50, 50]
     assert res["total_coletados"] == 53
+
+
+def test_pesquisa_preco_separa_codigo_municipio_de_codigo_ibge():
+    class _SbComResolucao(_SbFalso):
+        def __init__(self, resposta):
+            super().__init__()
+            self.resposta = resposta
+            self.rpc_chamadas = []
+
+        def rpc(self, funcao, parametros):
+            self.rpc_chamadas.append((funcao, parametros))
+            return [self.resposta]
+
+    item = _item_pp(estado="SC", municipio="Navegantes", codigoMunicipio=4480,
+                    codigoMunicipioIbge=4211306)
+    cliente = _ClienteFalso([[item]], total=1)
+    sb = _SbComResolucao({"municipio_id": "municipio-uuid", "candidato_municipio_id": None,
+                          "status": "resolvido", "metodo_resolucao": "codigo_ibge"})
+
+    resultado = compras_precos.coletar(cliente, sb, itens=[480144], dry_run=False)
+
+    assert resultado["total_gravados"] == 1
+    assert sb.gravadas[0]["codigo_municipio"] == 4480
+    assert sb.gravadas[0]["codigo_municipio_ibge"] == "4211306"
+    assert sb.gravadas[0]["municipio_id"] == "municipio-uuid"
+    funcao, parametros = sb.rpc_chamadas[0]
+    assert funcao == "resolver_municipio"
+    assert parametros["p_fonte"] == "comprasgov"
+    assert parametros["p_codigo_ibge"] == "4211306"
+    assert parametros["p_namespace"] == "codigo_municipio"
+    assert parametros["p_identificador_externo"] == "4480"
+    assert parametros["p_identificador_verificado"] is False
+
+
+def test_pesquisa_preco_sem_codigo_ibge_mantem_codigo_municipio_pendente():
+    class _SbComCandidato(_SbFalso):
+        def __init__(self):
+            super().__init__()
+            self.rpc_chamadas = []
+
+        def rpc(self, funcao, parametros):
+            self.rpc_chamadas.append((funcao, parametros))
+            return [{"municipio_id": None, "candidato_municipio_id": "candidato-uuid",
+                     "status": "candidato", "metodo_resolucao": "nome_uf"}]
+
+    item = _item_pp(estado="SC", municipio="Navegantes", codigoMunicipio=4480)
+    cliente = _ClienteFalso([[item]], total=1)
+    sb = _SbComCandidato()
+
+    compras_precos.coletar(cliente, sb, itens=[480144], dry_run=False)
+
+    assert "municipio_id" not in sb.gravadas[0]
+    funcao, parametros = sb.rpc_chamadas[0]
+    assert funcao == "resolver_municipio"
+    assert parametros["p_codigo_ibge"] is None
+    assert parametros["p_namespace"] == "codigo_municipio"
+    assert parametros["p_identificador_externo"] == "4480"
+    assert parametros["p_identificador_verificado"] is False
