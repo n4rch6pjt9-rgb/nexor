@@ -191,3 +191,23 @@ def test_main_nao_imprime_nome_do_titular_de_mei(monkeypatch, capsys):
     assert F.main(["--cnpj", "32068708000170", "--dry-run"]) == 0
     saida = capsys.readouterr().out
     assert "FULANO" not in saida and "(titular pessoa física)" in saida
+
+
+
+def test_cadastro_fornecedor_vincula_municipio_pelo_codigo_ibge():
+    consulta = MagicMock()
+    consulta.consultar.return_value = (BRASILAPI_JA, "brasilapi", "ok")
+    sb = MagicMock()
+    sb.selecionar.return_value = []
+    sb.rpc.return_value = [{"municipio_id": "municipio-uuid", "candidato_municipio_id": None,
+                            "status": "resolvido", "metodo_resolucao": "codigo_ibge"}]
+
+    cad = F.CadastroFornecedores(sb=sb, consulta=consulta)
+    cad.cadastrar(["24.608.949/0001-37"])
+
+    linha = sb.upsert.call_args.args[1]
+    assert linha["municipio_id"] == "municipio-uuid"
+    funcao, parametros = sb.rpc.call_args.args
+    assert funcao == "resolver_municipio"
+    assert parametros["p_fonte"] == "cnpj:brasilapi"
+    assert parametros["p_codigo_ibge"] == "2927408"

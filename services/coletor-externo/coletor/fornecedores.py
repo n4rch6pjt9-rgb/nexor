@@ -30,6 +30,8 @@ from typing import Any, Iterable
 
 import requests
 
+from .municipios import MunicipioResolver, municipio_id_resolvido
+
 log = logging.getLogger("coletor.fornecedores")
 
 UA = "LicitaGym-Coletor/1.1 (cadastro de fornecedores de licitações públicas)"
@@ -205,6 +207,7 @@ class CadastroFornecedores:
         self.validade = timedelta(days=validade_dias)
         self.dry_run = dry_run
         self._feitos: set[str] = set()  # cache da execução (vários itens/certames repetem o mesmo fornecedor)
+        self._municipios = MunicipioResolver(sb) if (sb is not None and not dry_run) else None
 
     def _frescos(self, cnpjs: list[str]) -> set[str]:
         if self.sb is None or not cnpjs:
@@ -242,6 +245,21 @@ class CadastroFornecedores:
                 log.warning("fornecedor %s: %s", cnpj, e)
                 continue
             linha = linha_fornecedor(cnpj, dados, prov, status)
+            if self._municipios is not None:
+                codigo_ibge = linha.get("codigo_municipio_ibge")
+                reconciliacao = self._municipios.resolver(
+                    fonte=f"cnpj:{prov}",
+                    nome=linha.get("municipio"),
+                    uf=linha.get("uf"),
+                    codigo_ibge=codigo_ibge,
+                    namespace="codigo_ibge" if codigo_ibge not in (None, "") else None,
+                    identificador_externo=codigo_ibge,
+                    identificador_verificado=codigo_ibge not in (None, ""),
+                    evidencias={"cnpj": cnpj, "provedor": prov, "campo_codigo_ibge": "codigo_municipio_ibge"},
+                )
+                municipio_id = municipio_id_resolvido(reconciliacao)
+                if municipio_id:
+                    linha["municipio_id"] = municipio_id
             resumo["consultados"] += 1
             resumo["nao_encontrados"] += status == "nao_encontrado"
             resumo["linhas"].append(linha)

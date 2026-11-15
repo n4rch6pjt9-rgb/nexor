@@ -42,6 +42,7 @@ from .compras_pdms import CatalogoPdmsIndisponivel, carregar_itens_avulsos, carr
 from .destino import Supabase, env
 from .paginacao import TAMANHO_PAGINA_MAX, DecisaoPagina, avaliar_pagina, clamp_tamanho, pagina_repetida
 from .retry import espera_retry
+from .municipios import MunicipioResolver, municipio_id_resolvido
 
 log = logging.getLogger("coletor.compras_precos")
 
@@ -215,6 +216,11 @@ def normalizar_preco_praticado(item: dict[str, Any]) -> dict[str, Any] | None:
 
     raw_str = json.dumps(item, sort_keys=True, ensure_ascii=False)
     p_hash = hashlib.sha256(raw_str.encode("utf-8")).hexdigest()
+    codigo_municipio_ibge = _int(item.get("codigoMunicipioIbge"))
+    codigo_municipio_ibge_texto = (
+        str(codigo_municipio_ibge) if codigo_municipio_ibge is not None
+        and re.fullmatch(r"\d{7}", str(codigo_municipio_ibge)) else None
+    )
 
     return {
         "id_compra": id_compra,
@@ -253,7 +259,9 @@ def normalizar_preco_praticado(item: dict[str, Any]) -> dict[str, Any] | None:
         "codigo_orgao": _int(item.get("codigoOrgao")),
         "nome_orgao": item.get("nomeOrgao"),
         "estado": item.get("estado"),
+        # codigoMunicipio é ID próprio do Compras.gov; não é codigo IBGE.
         "codigo_municipio": _int(item.get("codigoMunicipio")),
+        "codigo_municipio_ibge": codigo_municipio_ibge_texto,
         "municipio": item.get("municipio"),
         "poder": item.get("poder"),
         "esfera": item.get("esfera"),
@@ -367,6 +375,7 @@ def _coletar_precos(
     duplicados_removidos = 0
     amostras = []
     por_tipo_ni = {"cnpj": 0, "cpf": 0, "outro": 0, "sem_ni": 0}
+    municipio_resolver = MunicipioResolver(sb) if (sb is not None and not dry_run) else None
 
     consultas: list[tuple[str, int]] = []
     if itens:
@@ -491,12 +500,57 @@ def _coletar_precos(
                         {"id_compra": ln["id_compra"], "id_item_compra": ln["id_item_compra"]}, raw_arquivado(bruto))
             if not dry_run and sb is not None and linhas_norm:
                 for lote in lotes_upsert(linhas_norm):
-                    try:
-                        sb.upsert("precos_praticados_itens", lote, conflito="id_compra,id_item_compra")
-                        total_gravados += len(lote)
-                    except Exception as e:
-                        log.error("Erro no upsert de %d linhas de precos: %s", len(lote), e)
-                        erros += 1
+                    if municipio_resolver is not None:
+                        for linha_preco in lote:
+                            codigo_ibge = linha_preco.get("codigo_municipio_ibge")
+                            codigo_fonte = linha_preco.get("codigo_municipio")
+                            if codigo_ibge not in (None, ""):
+                                reconciliacao = municipio_resolver.resolver(
+                                    fonte="comprasgov",
+                                    nome=linha_preco.get("municipio"),
+                                    uf=linha_preco.get("estado"),
+                                    codigo_ibge=codigo_ibge,
+                                    namespace="codigo_municipio" if codigo_fonte not in (None, 0, "") else "codigo_ibge",
+                                    identificador_externo=str(codigo_fonte) if codigo_fonte not in (None, 0, "") else codigo_ibge,
+                                    identificador_verificado=codigo_fonte in (None, 0, ""),
+                                    evidencias={
+                                        "endpoint": ENDPOINT_MATERIAL,
+                                        "campo_codigo_ibge": "codigoMunicipioIbge",
+                                        "campo_id_fonte": "codigoMunicipio" if codigo_fonte not in (None, 0, "") else None,
+                                        "id_fonte_semantica_confirmada": False if codigo_fonte not in (None, 0, "") else None,
+                                    },
+                                )
+                            else:
+                                reconciliacao = municipio_resolver.resolver(
+                                    fonte="comprasgov",
+                                    nome=linha_preco.get("municipio"),
+                                    uf=linha_preco.get("estado"),
+                                    namespace="codigo_municipio" if codigo_fonte not in (None, 0, "") else None,
+                                    identificador_externo=str(codigo_fonte) if codigo_fonte not in (None, 0, "") else None,
+                                    identificador_verificado=False,
+                                    evidencias={
+                                        "endpoint": ENDPOINT_MATERIAL,
+                                        "campo": "codigoMunicipio",
+                                        "observacao": "ID proprio da fonte; nao tratar como codigo IBGE",
+                                    },
+                                )
+                            municipio_id = municipio_id_resolvido(reconciliacao)
+                            if municipio_id:
+                                linha_preco["municipio_id"] = municipio_id
+                    # PostgREST exige as mesmas chaves em todas as linhas do lote. Separar as linhas
+                    # resolvidas das pendentes evita enviar NULL e apagar um FK já conhecido.
+                    grupos = [lote]
+                    if municipio_resolver is not None:
+                        com_municipio = [ln for ln in lote if ln.get("municipio_id")]
+                        sem_municipio = [ln for ln in lote if not ln.get("municipio_id")]
+                        grupos = [g for g in (com_municipio, sem_municipio) if g]
+                    for grupo in grupos:
+                        try:
+                            sb.upsert("precos_praticados_itens", grupo, conflito="id_compra,id_item_compra")
+                            total_gravados += len(grupo)
+                        except Exception as e:
+                            log.error("Erro no upsert de %d linhas de precos: %s", len(grupo), e)
+                            erros += 1
 
             if limite and total_coletados >= limite:
                 log.info("Limite de %d itens atingido", limite)
