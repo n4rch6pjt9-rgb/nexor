@@ -19,6 +19,7 @@ Referência obrigatória: `docs/pncp/schemas-consultas-pncp.md`.
 - **Idempotência**: reprocessar não duplica contratações, itens, atas, contratos ou relações; identidade pela chave oficial (ex.: número de controle PNCP, CNPJ + ano + sequencial).
 - **Normalização em camadas**: DTO HTTP → validação → normalizer → modelo interno → persistência. Formato PNCP não deve vazar pelo domínio.
 - **Identificação da licitação**: preservar UASG, número da compra, modalidade, órgão, unidade compradora e ids oficiais.
+- **Geografia**: `Municipio.id` e `Municipio.codigoIbge` são campos distintos; para unidade PNCP use `GET /orgaos/{cnpj}/unidades` e a regra em `docs/geografia/reconciliacao-municipios-multifonte.md`. Não inferir IBGE de `suggest.id`.
 - **Reconciliação**: permitir comparar descoberto × hidratado × persistido × documentos.
 - **Checkpoint** em processos extensos.
 - Dados estruturados antes de documentos.
