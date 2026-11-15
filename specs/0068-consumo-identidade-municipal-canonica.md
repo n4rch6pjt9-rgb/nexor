@@ -7,7 +7,7 @@
 - **Área:** edge-functions | migrations | dashboard-contrato | dashboard-tela | testes
 - **Depende do ok do Marcelo:** sim (contrato de filtro, autorização multi-tenant e migration de views/RPCs)
 
-> **Limite de ciclo:** esta spec é independente do PR 2 (`feat/reconciliacao-municipios-multifonte`). Não alterar, ampliar, rebasear ou fechar o PR 2 por causa desta entrega. A implementação desta spec depende do PR 2 aprovado, com Supabase Preview e CI verdes, revisores concluídos e validação real do sync municipal. Não publicar nada em produção sem autorização explícita.
+> **Limite de ciclo:** esta spec é independente do PR 2 (`feat/reconciliacao-municipios-multifonte`). Não alterar, ampliar, rebasear ou fechar o PR 2 por causa desta entrega. A implementação desta spec depende de o PR 2 (já mergeado) estar verificado em produção e de a validação real do sync municipal estar feita. Não publicar nada em produção sem autorização explícita.
 
 ## Leitura obrigatória antes de implementar
 
@@ -38,7 +38,7 @@ A tabela `public.municipios` e `public.municipio_referencias_externas` são, con
 
 A expansão de IDs externos também não pode ser feita no Dashboard. O helper `public.listar_ids_municipio_fonte` retorna somente referências `verificado` e é restrito a `service_role`. Referências pendentes, conflitantes ou rejeitadas não podem ser usadas para consultar uma fonte nem para ampliar o resultado sem filtro.
 
-**Estado de evidência em 15/11/2026:** o PR 2 ainda está em draft. A migration e o check foram executados em Postgres 17 descartável, mas o Supabase Preview do PR ainda não rodou; não houve sync real de unidades PNCP nem validação real de Navegantes. A CI com `deno check` e a nova revisão dos revisores sobre `952cfa9` ainda são gates do PR 2. Não há publicação em produção.
+**Estado de evidência em 15/11/2026:** o PR 2 foi mergeado na `main` em 15/11/2026 (merge `86ba360`), depois de a migration e o check serem executados em Postgres 17 descartável (139 testes Python e 11 Deno passaram). Não há registro, nesta spec, de que o Supabase Preview, a revisão dos revisores sobre `952cfa9`, a verificação em produção (`verificar-producao`, `get_advisors`), um sync real de unidades PNCP ou a validação real de Navegantes tenham sido concluídos. A implementação desta spec começa só depois dessas verificações.
 
 O caso Navegantes continua sendo regressão obrigatória: `4211306` e `4480` foram retornados pelo autocomplete do PNCP, mas o contrato de `suggest.id` ainda não está confirmado. `4480` só pode entrar no namespace verificado depois de cruzar com `Municipio.id`/`Municipio.codigoIbge` da unidade oficial; igualdade numérica ou nome igual não bastam.
 
@@ -150,8 +150,14 @@ Cada critério é testável e nomeia o teste que o prova. O `/implement` escreve
 - **15/11/2026:** `municipios` e `municipio_referencias_externas` são somente `service_role` no estado atual do PR 2; o cliente lê municípios por Edge Function.
 - **15/11/2026:** `PNCP suggest.id=4480` não está confirmado como alias equivalente; só promover com prova no DTO oficial da unidade.
 - **15/11/2026:** o estado de testes correto do PR 2 informado pelo Marcelo é 139 testes Python em quatro arquivos + 11 testes Deno; não repetir a contagem anterior de 220 Python nem declarar Deno como não executado.
+- **15/11/2026 (aprovadas as recomendações das perguntas 1 a 3):**
+  1. Abrangência do tenant: a spec 0065 não muda neste ciclo; `municipio_ids` vale só para os filtros temporários das telas.
+  2. Fonte sem alias verificado: resultado parcial explícito (`parcial=true` e `fontes_sem_referencia[]`); nunca consultar a fonte sem filtro e nunca rotular o conjunto como completo.
+  3. Parâmetro textual antigo `municipio`: mantido por uma versão de backend, com aviso de depreciação e erro 400 `filtro_municipio_conflitante` se vier junto com `municipio_ids`.
 
 ## Perguntas em aberto
+
+As perguntas 1 a 3 foram resolvidas em 15/11/2026 conforme as recomendações abaixo (ver "Decisões do Marcelo"). Seguem abertas a 4 e a 5.
 
 1. **Abrangência do tenant (spec 0065):** o perfil de fornecimento deve aceitar municípios específicos além de `Brasil`/UFs, ou esta spec deve limitar `municipio_ids` aos filtros temporários das telas? Recomendação: não alterar a semântica do perfil 0065 neste ciclo; primeiro concluir o consumo canônico nas listas.
 2. **Fonte sem alias verificado:** se uma consulta agregada usar mais de uma fonte e uma delas não tiver referência verificada, a API deve retornar resultado parcial com `fontes_sem_referencia[]` e `parcial=true`, ou bloquear toda a consulta com 409? Recomendação: parcial explícito, nunca consultar a fonte sem filtro e nunca rotular o conjunto como completo.
