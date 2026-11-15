@@ -1,0 +1,206 @@
+name: Pré-flight Supabase — SESC/DN
+
+on:
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  preflight:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    env:
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      SUPABASE_STORAGE_BUCKET: ${{ secrets.SUPABASE_STORAGE_BUCKET }}
+      VISITANTE_CNPJ: ${{ secrets.VISITANTE_CNPJ }}
+      VISITANTE_RAZAO_SOCIAL: ${{ secrets.VISITANTE_RAZAO_SOCIAL }}
+      VISITANTE_CPF: ${{ secrets.VISITANTE_CPF }}
+      VISITANTE_NOME: ${{ secrets.VISITANTE_NOME }}
+      VISITANTE_EMAIL: ${{ secrets.VISITANTE_EMAIL }}
+      VISITANTE_TELEFONE: ${{ secrets.VISITANTE_TELEFONE }}
+      VISITANTE_UF: ${{ secrets.VISITANTE_UF }}
+      VISITANTE_CONTATO: ${{ secrets.VISITANTE_CONTATO }}
+      VISITANTE_CONSENTIMENTO_LGPD: ${{ secrets.VISITANTE_CONSENTIMENTO_LGPD }}
+      VISITANTE_HASH_CHAVE: ${{ secrets.VISITANTE_HASH_CHAVE }}
+      VISITANTE_ENDERECO: ${{ secrets.VISITANTE_ENDERECO }}
+      VISITANTE_NUMERO: ${{ secrets.VISITANTE_NUMERO }}
+      VISITANTE_BAIRRO: ${{ secrets.VISITANTE_BAIRRO }}
+      VISITANTE_CEP: ${{ secrets.VISITANTE_CEP }}
+      VISITANTE_CIDADE: ${{ secrets.VISITANTE_CIDADE }}
+      VISITANTE_RG: ${{ secrets.VISITANTE_RG }}
+
+    steps:
+      - name: Validar Secrets
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          for name in $(env | cut -d= -f1 | grep -E '^(SUPABASE_|VISITANTE_)' | sort); do
+            if [[ -z "${!name:-}" ]]; then
+              echo "::error::$name ausente"
+              exit 1
+            fi
+            echo "$name: CONFIGURADO"
+          done
+
+          python3 - <<'PY'
+          import os, re, sys
+          from urllib.parse import urlparse
+
+          url = urlparse(os.environ["SUPABASE_URL"])
+          errors = []
+
+          if url.scheme != "https" or not url.hostname:
+              errors.append("SUPABASE_URL inválida")
+
+          for name, size in [
+              ("VISITANTE_CNPJ", 14),
+              ("VISITANTE_CPF", 11),
+              ("VISITANTE_CEP", 8),
+          ]:
+              if len(re.sub(r"\D", "", os.environ[name])) != size:
+                  errors.append(f"{name}: formato inválido")
+
+          if len(os.environ["VISITANTE_UF"].strip()) != 2:
+              errors.append("VISITANTE_UF inválida")
+
+          if "@" not in os.environ["VISITANTE_EMAIL"]:
+              errors.append("VISITANTE_EMAIL inválido")
+
+          if errors:
+              print("\n".join(errors))
+              sys.exit(1)
+
+          print("Formatos básicos aprovados.")
+          PY
+
+      - name: Testar PostgREST
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          BASE="${SUPABASE_URL%/}"
+
+          CODE=$(curl -sS \
+            --connect-timeout 10 \
+            --max-time 30 \
+            -o /dev/null \
+            -w '%{http_code}' \
+            -H "apikey: $SUPABASE_SERVICE_ROLE_KEY" \
+            -H "Authorization: Bearer $SUPABASE_SERVICE_ROLE_KEY" \
+            "$BASE/rest/v1/")
+
+          if [[ "$CODE" != "200" ]]; then
+            echo "::error::PostgREST HTTP $CODE"
+            exit 1
+          fi
+
+          echo "PostgREST: HTTP 200 — autenticado"
+
+      - name: Verificar RPCs da fila
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          BASE="${SUPABASE_URL%/}"
+          OPENAPI="$RUNNER_TEMP/openapi.json"
+
+          CODE=$(curl -sS \
+            --connect-timeout 10 \
+            --max-time 30 \
+            -o "$OPENAPI" \
+            -w '%{http_code}' \
+            -H "apikey: $SUPABASE_SERVICE_ROLE_KEY" \
+            -H "Authorization: Bearer $SUPABASE_SERVICE_ROLE_KEY" \
+            -H "Accept: application/openapi+json" \
+            "$BASE/rest/v1/")
+
+          if [[ "$CODE" != "200" ]]; then
+            echo "::error::Falha ao consultar OpenAPI: HTTP $CODE"
+            exit 1
+          fi
+
+          python3 - "$OPENAPI" <<'PYTHON'
+          import json
+          import sys
+
+          with open(sys.argv[1], encoding="utf-8") as f:
+              spec = json.load(f)
+
+          paths = spec.get("paths", {})
+
+          required = [
+              "coleta_externa_fila_enfileirar",
+              "coleta_externa_fila_marcar",
+              "coleta_externa_fila_reservar",
+              "coleta_externa_finalizar",
+              "coleta_externa_iniciar",
+          ]
+
+          missing = [
+              name for name in required
+              if f"/rpc/{name}" not in paths
+          ]
+
+          if missing:
+              print("RPCs não encontradas:")
+              for name in missing:
+                  print("-", name)
+              sys.exit(1)
+
+          print("RPCs publicadas: 5/5")
+          PYTHON
+
+      - name: Testar Storage
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          BASE="${SUPABASE_URL%/}"
+
+          CODE=$(curl -sS \
+            --connect-timeout 10 \
+            --max-time 30 \
+            -o "$RUNNER_TEMP/bucket.json" \
+            -w '%{http_code}' \
+            -H "apikey: $SUPABASE_SERVICE_ROLE_KEY" \
+            -H "Authorization: Bearer $SUPABASE_SERVICE_ROLE_KEY" \
+            "$BASE/storage/v1/bucket/$SUPABASE_STORAGE_BUCKET")
+
+          if [[ "$CODE" != "200" ]]; then
+            echo "::error::Storage HTTP $CODE"
+            exit 1
+          fi
+
+          python3 - "$RUNNER_TEMP/bucket.json" <<'PY'
+          import json, os, sys
+
+          with open(sys.argv[1]) as f:
+              bucket = json.load(f)
+
+          if bucket.get("id") != "licitacao-documentos":
+              sys.exit("Bucket incompatível")
+
+          if bucket.get("public") is not False:
+              sys.exit("Bucket deveria permanecer privado")
+
+          if int(bucket.get("file_size_limit") or 0) != 52428800:
+              sys.exit("Limite de 50 MB não confirmado")
+
+          print("Bucket: licitacao-documentos")
+          print("Visibilidade: privado")
+          print("Limite: 50 MB")
+          PY
+
+      - name: Resultado
+        run: |
+          {
+            echo "## Pré-flight Supabase SESC/DN"
+            echo "- Secrets: validados"
+            echo "- PostgREST: conectado"
+            echo "- Storage: conectado"
+            echo "- Escritas: nenhuma"
+            echo "- Coleta: não executada"
+          } >> "$GITHUB_STEP_SUMMARY"
