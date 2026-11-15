@@ -1,0 +1,79 @@
+# Exemplo de configuração de portais do Sistema S
+
+# Este arquivo é um exemplo de configuração do catálogo de fontes do Sistema S.
+# Ele não substitui o banco nem o workflow, mas documenta a estratégia de
+# adaptação por portal e por tecnologia.
+
+fontes:
+  - slug: sescdn
+    nome: Sesc DN
+    tecnologia: paradigma
+    base_url: https://egov-br.paradigmabs.com.br/sescdn
+    mural_path: /portal/Mural.aspx
+    webservice_path: /portal/WebService/Servicos.asmx
+    cadastro_visitante: true
+    documentos_habilitados: true
+    documentos_para_embedding: true
+    etapas:
+      - descoberta
+      - carga
+      - documentos
+    observacoes:
+      - URL no domínio Paradigma com contexto de portal específico.
+      - Cadastro de visitante pode ser requerido para anexos.
+
+  - slug: firjan
+    nome: Firjan
+    tecnologia: paradigma
+    base_url: https://portaldecompras.firjan.com.br
+    mural_path: /portal/Mural.aspx
+    webservice_path: /portal/WebService/Servicos.asmx
+    cadastro_visitante: true
+    documento_endereco_obrigatorio: true
+    documentos_habilitados: true
+    documentos_para_embedding: true
+    etapas:
+      - descoberta
+      - carga
+      - documentos
+    observacoes:
+      - Exige cadastro de visitante mais completo em alguns casos.
+      - A coleta da oportunidade não deve ser bloqueada por pendência de documento.
+
+  - slug: sescsp
+    nome: Sesc SP
+    tecnologia: paradigma
+    base_url: https://scr360.paradigmabs.com.br/sescsp
+    mural_path: /portal/Mural.aspx
+    webservice_path: /portal/WebService/Servicos.asmx
+    cadastro_visitante: true
+    documentos_habilitados: true
+    documentos_para_embedding: true
+    etapas:
+      - descoberta
+      - carga
+      - documentos
+    observacoes:
+      - Compartilha a mesma tecnologia do Paradigma com contexto de portal específico.
+
+  - slug: fieb
+    nome: FIEB
+    tecnologia: paradigma
+    base_url: https://www.fieb.org.br
+    mural_path: /portal/Mural.aspx
+    webservice_path: /portal/WebService/Servicos.asmx
+    cadastro_visitante: false
+    documentos_habilitados: false
+    documentos_para_embedding: false
+    etapas:
+      - descoberta
+      - carga
+    observacoes:
+      - Exemplo de fonte que não exige documentos para a rotina principal.
+
+# Observações operacionais:
+# - O campo `tecnologia` identifica o adaptador principal.
+# - O campo `slug` identifica a fonte no workflow e nas tabelas de monitoramento.
+# - Os documentos não devem ser um gate para coleta da oportunidade.
+# - O campo `documentos_para_embedding` indica que o arquivo pode ser baixado e
+#   armazenado para processamento posterior, sem bloquear a oportunidade.
