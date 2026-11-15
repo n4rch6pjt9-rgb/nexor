@@ -34,14 +34,85 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          set -euo pipefail
-          status=0
-          python3 scripts/sentinela_observar.py --github --pncp > "$RUNNER_TEMP/sentinela.json" || status=$?
-          {
-            echo '## Sentinela — observação'
-            echo 'Execução de jobs não comprova completude dos dados. Atenção inclui observação indisponível.'
-            echo '```json'
-            cat "$RUNNER_TEMP/sentinela.json"
-            echo '```'
-          } >> "$GITHUB_STEP_SUMMARY"
-          exit "$status"
+  set -euo pipefail
+  status=0
+  resultado="$RUNNER_TEMP/sentinela.json"
+  : > "$resultado"
+
+  python3 scripts/sentinela_observar.py --github --pncp > "$resultado" || status=$?
+
+  if python3 - "$resultado" "$status" >> "$GITHUB_STEP_SUMMARY" <<'PY'
+  import html
+  import json
+  import sys
+
+  path, raw_status = sys.argv[1], sys.argv[2]
+  exit_status = int(raw_status)
+
+  def cell(value):
+      text = html.escape(str(value)).replace("|", "&#124;")
+      return text.replace("\r\n", "<br>").replace("\n", "<br>")
+
+  try:
+      with open(path, encoding="utf-8") as file:
+          data = json.load(file)
+      valid = (
+          isinstance(data, dict)
+          and isinstance(data.get("verificacoes"), list)
+          and all(isinstance(item, dict) for item in data["verificacoes"])
+      )
+  except (OSError, json.JSONDecodeError):
+      data, valid = {}, False
+
+  print("## 🛡️ Sentinela — resumo da observação")
+  print()
+
+  if not valid:
+      print("**Resultado:** ❌ Saída JSON ausente ou inválida; saúde não verificada.")
+      print()
+      print("O processo do observador terminou com código de saída `{}`.".format(exit_status))
+      print()
+      print("Verificações estruturadas indisponíveis.")
+      sys.exit(1)
+
+  resumo = {
+      0: "🟢 Observação concluída sem alertas",
+      1: "🔴 Uma ou mais verificações críticas",
+      2: "🟡 Atenção: observação indisponível ou não confirmada",
+      }.get(exit_status, "❌ Falha de execução do observador")
+
+  print(f"**Resultado:** {resumo} (código `{exit_status}`)")
+  print(f"**Gerado em:** {cell(data.get('gerado_em', 'não informado'))}")
+  print()
+  print("> A execução de jobs não comprova a completude dos dados.")
+  print()
+  print("| Verificação | Estado | Mensagem | Evidência |")
+  print("|---|---|---|---|")
+
+  for item in data["verificacoes"]:
+      evidence = json.dumps(
+          item.get("evidencia", {}),
+          ensure_ascii=False,
+          sort_keys=True,
+          separators=(",", ":"),
+      )
+      print(
+          f"| {cell(item.get('verificacao', 'não identificada'))} "
+          f"| {cell(item.get('status', 'desconhecido'))} "
+          f"| {cell(item.get('mensagem', 'sem mensagem'))} "
+          f"| `{cell(evidence)}` |"
+      )
+  PY
+  then
+    summary_status=0
+  else
+    summary_status=$?
+  fi
+
+  # JSON inválido também deve falhar o job, mas não sobrescreve um código
+  # de falha/alerta que o observador já tenha retornado.
+  if [ "$summary_status" -ne 0 ] && [ "$status" -eq 0 ]; then
+    status=1
+  fi
+
+  exit "$status"
