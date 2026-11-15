@@ -79,6 +79,40 @@ def test_rpc_indisponivel_nao_descarta_dado_da_fonte(caplog):
     assert municipio_id_resolvido({"status": "pendente", "municipio_id": "uuid"}) is None
 
 
+def test_falha_transitoria_da_rpc_nao_e_cacheada():
+    # Regressão: um timeout isolado deixava o município sem FK pelo resto da execução.
+    sb = MagicMock()
+    sb.rpc.side_effect = [
+        RuntimeError("timeout"),
+        [{"municipio_id": "uuid-1", "candidato_municipio_id": None, "status": "resolvido",
+          "metodo_resolucao": "codigo_ibge"}],
+    ]
+    resolver = MunicipioResolver(sb)
+
+    primeira = resolver.resolver(fonte="pncp", nome="Navegantes", uf="SC", codigo_ibge="4211306")
+    segunda = resolver.resolver(fonte="pncp", nome="Navegantes", uf="SC", codigo_ibge="4211306")
+    terceira = resolver.resolver(fonte="pncp", nome="Navegantes", uf="SC", codigo_ibge="4211306")
+
+    assert primeira is None
+    assert municipio_id_resolvido(segunda) == "uuid-1"
+    assert terceira == segunda
+    assert sb.rpc.call_count == 2  # a resposta válida é cacheada; a falha não
+
+
+def test_listar_ids_fonte_falha_fechado_com_item_malformado():
+    from coletor.municipios import listar_ids_municipio_fonte
+
+    for item in ("nao-e-objeto", {"namespace": "municipio_id"}, {"valor_externo": "4480"}):
+        sb = MagicMock()
+        sb.rpc.return_value = [{"namespace": "municipio_id", "valor_externo": "1"}, item]
+        try:
+            listar_ids_municipio_fonte(sb, municipio_id="municipio-uuid", fonte="pncp")
+        except (TypeError, ValueError):
+            pass
+        else:
+            raise AssertionError("item malformado não pode ser ignorado em silêncio")
+
+
 def test_listar_ids_fonte_solicita_apenas_referencias_verificadas_via_rpc():
     from coletor.municipios import listar_ids_municipio_fonte
 

@@ -1,5 +1,5 @@
--- Verificação da migration 20261114100000_municipios_reconciliacao_multifonte.
--- Executar após supabase db reset / aplicação da migration. Todas as mutações deste check são revertidas.
+-- Verificação das migrations 20261114100000/100100/100200 (reconciliação municipal multi-fonte).
+-- Executar após a aplicação das três migrations. Todas as mutações deste check são revertidas.
 begin;
 
 do $$
@@ -12,6 +12,7 @@ declare
   v_entidade_id uuid;
   v_orgao_id uuid;
   v_cnpj_teste text;
+  v_detalhe text;
   v_ref public.municipio_referencias_externas%rowtype;
 begin
   if to_regclass('public.municipios') is null
@@ -105,6 +106,53 @@ begin
     raise exception 'reconciliacao municipal: expansão retornou ID pendente';
   end if;
 
+  -- Reobservação idempotente do mesmo ID pendente (regressão: coluna de retorno ambígua no UPDATE final).
+  select r.status, r.candidato_municipio_id
+    into v_status, v_candidato_id
+    from public.resolver_municipio(
+      'comprasgov', 'Navegantes', 'SC', null, 'codigo_municipio', '4480', false,
+      jsonb_build_object('campo', 'codigoMunicipio', 'reobservacao', true)
+    ) r;
+  if v_status <> 'candidato' or v_candidato_id is null then
+    raise exception 'reconciliacao municipal: reobservação de ID pendente falhou';
+  end if;
+  select count(*) into v_qtd
+    from public.municipio_referencias_externas
+   where fonte = 'comprasgov' and namespace = 'codigo_municipio' and valor_externo = '4480';
+  if v_qtd <> 1 then
+    raise exception 'reconciliacao municipal: reobservação duplicou a referência';
+  end if;
+
+  -- Métodos de detalhe (id novo sem município correspondente, e sem nome/UF) não podem violar a CHECK da tabela.
+  perform * from public.resolver_municipio(
+    'pncp', 'Cidade Inexistente de Teste', 'SC', null, 'suggest_municipio', '99991', false, '{}'::jsonb);
+  perform * from public.resolver_municipio(
+    'pncp', null, null, null, 'suggest_municipio', '99992', false, '{}'::jsonb);
+  select r.status, r.metodo_resolucao, r.evidencias ->> 'metodo_detalhe'
+    into v_status, v_metodo, v_detalhe
+    from public.municipio_referencias_externas r
+   where r.fonte = 'pncp' and r.namespace = 'suggest_municipio' and r.valor_externo = '99991';
+  if v_status <> 'pendente' or v_metodo is not null or v_detalhe <> 'id_fonte_nao_verificado' then
+    raise exception 'reconciliacao municipal: método de detalhe não foi preservado na evidência';
+  end if;
+  if exists (select 1 from public.municipios where nome = 'Cidade Inexistente de Teste') then
+    raise exception 'reconciliacao municipal: ID não verificado criou município';
+  end if;
+
+  -- listar_ids_municipio_fonte falha fechado em entrada inválida (nunca devolve vazio no lugar de erro).
+  begin
+    perform * from public.listar_ids_municipio_fonte(null, 'pncp', null);
+    raise exception 'reconciliacao municipal: listar_ids aceitou município nulo';
+  exception when raise_exception then
+    if sqlerrm like 'reconciliacao municipal:%' then raise; end if;
+  end;
+  begin
+    perform * from public.listar_ids_municipio_fonte(gen_random_uuid(), 'pncp', null);
+    raise exception 'reconciliacao municipal: listar_ids aceitou município inexistente';
+  exception when raise_exception then
+    if sqlerrm like 'reconciliacao municipal:%' then raise; end if;
+  end;
+
   select r.municipio_id, r.candidato_municipio_id, r.status, r.metodo_resolucao
     into v_municipio_id, v_candidato_id, v_status, v_metodo
     from public.resolver_municipio(
@@ -139,8 +187,57 @@ begin
   if has_table_privilege('authenticated', 'public.municipio_referencias_externas', 'SELECT') then
     raise exception 'reconciliacao municipal: referências externas expostas a authenticated';
   end if;
-  if not has_table_privilege('authenticated', 'public.municipios', 'SELECT') then
-    raise exception 'reconciliacao municipal: dimensão canônica não é legível por authenticated';
+  -- Tabelas internas: sem acesso de anon/authenticated (evidencias expõe proveniência dos coletores).
+  if has_table_privilege('authenticated', 'public.municipios', 'SELECT')
+     or has_table_privilege('anon', 'public.municipios', 'SELECT')
+     or has_table_privilege('anon', 'public.municipio_referencias_externas', 'SELECT') then
+    raise exception 'reconciliacao municipal: tabela interna legível por anon/authenticated';
+  end if;
+  if not has_table_privilege('service_role', 'public.municipios', 'SELECT,INSERT,UPDATE,DELETE')
+     or not has_table_privilege('service_role', 'public.municipio_referencias_externas', 'SELECT,INSERT,UPDATE,DELETE') then
+    raise exception 'reconciliacao municipal: service_role sem acesso às tabelas';
+  end if;
+  if exists (
+    select 1 from pg_class c
+     where c.oid in ('public.municipios'::regclass, 'public.municipio_referencias_externas'::regclass)
+       and not c.relrowsecurity
+  ) then
+    raise exception 'reconciliacao municipal: RLS desligada';
+  end if;
+  if exists (
+    select 1 from pg_policies p
+     where p.schemaname = 'public' and p.tablename in ('municipios', 'municipio_referencias_externas')
+  ) then
+    raise exception 'reconciliacao municipal: policy inesperada (tabela deve ser só service_role)';
+  end if;
+  if has_function_privilege('anon', 'public.listar_ids_municipio_fonte(uuid,text,text[])', 'EXECUTE')
+     or has_function_privilege('anon', 'public.resolver_municipio_unidade_pncp(text,text,text,text)', 'EXECUTE')
+     or has_function_privilege('authenticated', 'public.resolver_municipio(text,text,text,text,text,text,boolean,jsonb)', 'EXECUTE')
+     or has_function_privilege('authenticated', 'private.normalizar_nome_municipio(text)', 'EXECUTE')
+     or has_function_privilege('anon', 'private.normalizar_nome_municipio(text)', 'EXECUTE') then
+    raise exception 'reconciliacao municipal: função exposta a anon/authenticated';
+  end if;
+  if not has_function_privilege('service_role', 'public.listar_ids_municipio_fonte(uuid,text,text[])', 'EXECUTE')
+     or not has_function_privilege('service_role', 'public.resolver_municipio_unidade_pncp(text,text,text,text)', 'EXECUTE') then
+    raise exception 'reconciliacao municipal: service_role sem EXECUTE nas RPCs';
+  end if;
+
+  -- FKs criadas e validadas (migration 20261114100200).
+  if exists (
+    select 1 from pg_constraint
+     where conname in (
+       'entidades_municipio_id_fkey', 'unidades_municipio_id_fkey', 'orgaos_municipio_id_fkey',
+       'uasgs_municipio_id_fkey', 'fornecedores_municipio_id_fkey', 'licitacoes_externas_municipio_id_fkey',
+       'precos_praticados_itens_municipio_id_fkey', 'precos_praticados_codigo_municipio_ibge_chk'
+     ) and not convalidated
+  ) or (
+    select count(*) from pg_constraint
+     where conname in (
+       'entidades_municipio_id_fkey', 'unidades_municipio_id_fkey', 'orgaos_municipio_id_fkey',
+       'uasgs_municipio_id_fkey', 'fornecedores_municipio_id_fkey', 'licitacoes_externas_municipio_id_fkey',
+       'precos_praticados_itens_municipio_id_fkey', 'precos_praticados_codigo_municipio_ibge_chk')
+  ) <> 8 then
+    raise exception 'reconciliacao municipal: FK/CHECK ausente ou não validado';
   end if;
 end $$;
 

@@ -92,6 +92,36 @@ Deno.test("normalização de município é compatível com a chave SQL", () => {
 });
 
 
+Deno.test("id de nível superior é da unidade e nunca vira Municipio.id", () => {
+  // Regressão: com `municipio` nulo/ausente o DTO da unidade era lido como se fosse o município.
+  for (const unidade of [
+    { id: 123, codigoUnidade: "0001", nomeUnidade: "Unidade A", municipio: null },
+    { id: 123, codigoUnidade: "0001", nomeUnidade: "Unidade A" },
+    { id: 123, nome: "Nome da unidade", codigoUnidade: "0001", municipioNome: "Navegantes", ufSigla: "SC" },
+  ]) {
+    const municipio = municipioDaUnidade(unidade);
+    assertEquals(municipio?.id ?? null, null);
+    assertEquals(municipio?.nome === "Nome da unidade", false);
+  }
+  // O DTO plano ainda fornece nome/UF/IBGE do município pelos campos próprios.
+  assertEquals(
+    municipioDaUnidade({ id: 123, municipioNome: "Navegantes", ufSigla: "SC", codigoIbge: "4211306" }),
+    { id: null, nome: "Navegantes", uf: "SC", codigoIbge: "4211306" },
+  );
+});
+
+Deno.test("Municipio.id sem codigoIbge fica não verificado (sem vínculo por nome+UF)", () => {
+  const municipio = municipioDaUnidade({
+    municipio: { id: 4480, nome: "Navegantes", uf: { siglaUF: "SC" } },
+  });
+  assert(municipio);
+  assertEquals(identificadorMunicipioFonte(municipio), {
+    namespace: "municipio_id",
+    valor: "4480",
+    verificado: false,
+  });
+});
+
 Deno.test("Municipio.id usa namespace próprio e não é convertido em IBGE", () => {
   const municipio = municipioDaUnidade({
     municipio: { id: 4480, nome: "Navegantes", codigoIbge: "4211306", uf: { siglaUF: "SC" } },

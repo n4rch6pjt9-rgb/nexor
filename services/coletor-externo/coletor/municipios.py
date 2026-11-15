@@ -116,6 +116,7 @@ class MunicipioResolver:
         }
 
         resultado: dict | None = None
+        falhou = False
         try:
             resposta = self.supabase.rpc("resolver_municipio", parametros)
             if isinstance(resposta, list) and resposta and isinstance(resposta[0], dict):
@@ -128,10 +129,13 @@ class MunicipioResolver:
                 log.warning("Reconciliação municipal retornou status inesperado (%s, %s)", fonte, resultado.get("status"))
                 resultado = None
         except Exception as erro:  # enriquecimento não pode descartar o registro original
+            falhou = True
             log.warning("Reconciliação municipal indisponível (%s): %s", fonte, str(erro)[:180])
 
-        with self._lock:
-            self._cache[chave] = resultado
+        # Falha transitória (timeout, 5xx) não é cacheada: o próximo registro do mesmo município tenta de novo.
+        if not falhou:
+            with self._lock:
+                self._cache[chave] = resultado
         return resultado
 
     def resolver_por_unidade_pncp(
@@ -215,10 +219,12 @@ def listar_ids_municipio_fonte(
         raise TypeError("RPC listar_ids_municipio_fonte retornou formato inesperado")
     referencias: list[dict[str, str]] = []
     for item in resposta:
+        # Item malformado interrompe o filtro (falha fechada): ignorá-lo estreitaria/alteraria o escopo em silêncio.
         if not isinstance(item, dict):
-            continue
+            raise TypeError("RPC listar_ids_municipio_fonte retornou item que não é objeto")
         namespace = _texto(item.get("namespace"))
         valor = _texto(item.get("valor_externo"))
-        if namespace and valor:
-            referencias.append({"namespace": namespace, "valor_externo": valor})
+        if not namespace or not valor:
+            raise ValueError("RPC listar_ids_municipio_fonte retornou item sem namespace ou valor_externo")
+        referencias.append({"namespace": namespace, "valor_externo": valor})
     return referencias

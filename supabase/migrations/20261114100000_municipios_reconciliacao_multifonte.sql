@@ -2,6 +2,10 @@
 -- Regra: codigo IBGE identifica o município; IDs de cada fonte ficam em namespaces próprios.
 -- IDs sem semântica confirmada são pendentes e nunca viram vínculo canônico por coincidência numérica.
 -- Migration aditiva: preserva colunas, payloads e identificadores originais; não apaga nem reescreve raw.
+-- Dividida em três para não reter ACCESS EXCLUSIVE durante o backfill:
+--   20261114100000 (esta)  DDL: tabelas, funções, colunas e FKs/CHECK NOT VALID. Só metadados.
+--   20261114100100         backfill de dados (só lock de linha).
+--   20261114100200         VALIDATE CONSTRAINT (SHARE UPDATE EXCLUSIVE, não bloqueia escrita).
 
 begin;
 set local lock_timeout = '10s';
@@ -114,15 +118,13 @@ comment on column public.municipio_referencias_externas.candidato_municipio_id i
 comment on column public.municipio_referencias_externas.evidencias is
   'Evidência não destrutiva da origem: endpoint, parâmetros, amostra, contrato do campo e divergências observadas.';
 
--- RLS/ACL: dimensão canônica é leitura global para usuários autenticados; referências externas são internas.
+-- RLS/ACL: as duas tabelas são internas. RLS ligada, sem policy e sem grant a anon/authenticated: o cliente lê
+-- município só via Edge Function (service_role). Isso evita expor `evidencias` (proveniência dos coletores).
 alter table public.municipios enable row level security;
 alter table public.municipio_referencias_externas enable row level security;
-revoke all on table public.municipios from public, anon, authenticated, service_role;
-grant select on table public.municipios to authenticated;
-grant select, insert, update, delete on table public.municipios to service_role;
 drop policy if exists municipios_select_authenticated on public.municipios;
-create policy municipios_select_authenticated on public.municipios
-  for select to authenticated using (true);
+revoke all on table public.municipios from public, anon, authenticated, service_role;
+grant select, insert, update, delete on table public.municipios to service_role;
 
 revoke all on table public.municipio_referencias_externas from public, anon, authenticated, service_role;
 grant select, insert, update, delete on table public.municipio_referencias_externas to service_role;
@@ -181,6 +183,7 @@ declare
   v_ref_candidato_id uuid;
   v_ref_verificado boolean := coalesce(p_identificador_verificado, false);
   v_codigo_resolvido boolean := false;
+  v_metodo_ref text;
 begin
   if v_fonte is null then
     raise exception 'p_fonte é obrigatório';
@@ -433,12 +436,21 @@ begin
       else coalesce(v_candidato_id, v_municipio_id)
     end;
 
+    -- A CHECK da tabela só aceita um conjunto fechado de métodos; o detalhe do motivo vai para a evidência.
+    v_metodo_ref := case
+      when v_metodo in ('codigo_ibge', 'id_fonte', 'nome_uf', 'manual', 'conflito') then v_metodo
+      else null
+    end;
+    if v_metodo is not null and v_metodo_ref is distinct from v_metodo then
+      v_evidencias := v_evidencias || jsonb_build_object('metodo_detalhe', v_metodo);
+    end if;
+
     insert into public.municipio_referencias_externas (
       fonte, namespace, valor_externo, municipio_id, candidato_municipio_id,
       nome_observado, uf_observada, status, metodo_resolucao, evidencias, verificado_em
     ) values (
       v_fonte, v_namespace, v_identificador, v_ref_municipio_id, v_ref_candidato_id,
-      v_nome, v_uf, v_ref_status, v_metodo, v_evidencias,
+      v_nome, v_uf, v_ref_status, v_metodo_ref, v_evidencias,
       case when v_ref_status = 'verificado' then now() else null end
     ) on conflict (fonte, namespace, valor_externo) do nothing;
 
@@ -527,7 +539,7 @@ begin
          set municipio_id = v_ref_municipio_id,
              candidato_municipio_id = null,
              status = 'verificado',
-             metodo_resolucao = v_metodo,
+             metodo_resolucao = v_metodo_ref,
              verificado_em = now(),
              ultima_vez_em = now(),
              nome_observado = coalesce(v_nome, nome_observado),
@@ -543,14 +555,15 @@ begin
              evidencias = evidencias || v_evidencias
        where id = v_referencia.id;
     else
-      update public.municipio_referencias_externas
-         set candidato_municipio_id = coalesce(v_ref_candidato_id, candidato_municipio_id),
-             metodo_resolucao = coalesce(v_metodo, metodo_resolucao),
+      -- Qualificar com alias: `candidato_municipio_id` e `metodo_resolucao` também são colunas de retorno da função.
+      update public.municipio_referencias_externas r
+         set candidato_municipio_id = coalesce(v_ref_candidato_id, r.candidato_municipio_id),
+             metodo_resolucao = coalesce(v_metodo_ref, r.metodo_resolucao),
              ultima_vez_em = now(),
-             nome_observado = coalesce(v_nome, nome_observado),
-             uf_observada = coalesce(v_uf, uf_observada),
-             evidencias = evidencias || v_evidencias
-       where id = v_referencia.id;
+             nome_observado = coalesce(v_nome, r.nome_observado),
+             uf_observada = coalesce(v_uf, r.uf_observada),
+             evidencias = r.evidencias || v_evidencias
+       where r.id = v_referencia.id;
     end if;
   end if;
 
@@ -575,11 +588,22 @@ create or replace function public.listar_ids_municipio_fonte(
   p_namespaces text[] default null
 )
 returns table (namespace text, valor_externo text)
-language sql
+language plpgsql
 stable
 security invoker
 set search_path = pg_catalog, public
 as $$
+begin
+  -- Fail closed: entrada inválida ou município inexistente é erro, nunca "lista vazia" (um filtro que trata vazio
+  -- como "sem restrição" ampliaria o escopo de busca do tenant). Lista vazia significa só "nenhum ID verificado".
+  if p_municipio_id is null or nullif(btrim(p_fonte), '') is null then
+    raise exception 'listar_ids_municipio_fonte: p_municipio_id e p_fonte são obrigatórios';
+  end if;
+  if not exists (select 1 from public.municipios m where m.id = p_municipio_id) then
+    raise exception 'listar_ids_municipio_fonte: município inexistente';
+  end if;
+
+  return query
   select r.namespace, r.valor_externo
     from public.municipio_referencias_externas r
    where r.municipio_id = p_municipio_id
@@ -587,6 +611,7 @@ as $$
      and r.status = 'verificado'
      and (p_namespaces is null or r.namespace = any(p_namespaces))
    order by r.namespace, r.valor_externo;
+end;
 $$;
 revoke all on function public.listar_ids_municipio_fonte(uuid, text, text[]) from public, anon, authenticated;
 grant execute on function public.listar_ids_municipio_fonte(uuid, text, text[]) to service_role;
@@ -642,7 +667,7 @@ as $$
       join public.entidades e on e.id = o.entidade_id
       join public.municipios m on m.id = u.municipio_id
      where u.municipio_id is not null
-       and regexp_replace(coalesce(e.cnpj, ''), '[^0-9]', '', 'g') = regexp_replace(coalesce(p_orgao_cnpj, ''), '[^0-9]', '', 'g')
+       and e.cnpj_normalizado = nullif(regexp_replace(coalesce(p_orgao_cnpj, ''), '[^0-9]', '', 'g'), '')
        and private.normalizar_nome_municipio(u.nome) = private.normalizar_nome_municipio(p_nome_unidade)
        and m.nome_normalizado = private.normalizar_nome_municipio(p_nome_municipio)
        and m.uf = upper(nullif(btrim(p_uf), ''))
@@ -677,8 +702,7 @@ begin
     alter table public.precos_praticados_itens
       add constraint precos_praticados_codigo_municipio_ibge_chk
       check (codigo_municipio_ibge is null or codigo_municipio_ibge ~ '^\d{7}$') not valid;
-    alter table public.precos_praticados_itens
-      validate constraint precos_praticados_codigo_municipio_ibge_chk;
+    -- VALIDATE fica na migration 20261114100200 (lock mais leve, fora da transação do DDL).
   end if;
 end $$;
 
@@ -698,173 +722,5 @@ comment on column public.fornecedores.municipio_id is 'FK para public.municipios
 comment on column public.licitacoes_externas.municipio_id is 'FK para public.municipios; municipio/uf e raw da fonte permanecem preservados.';
 comment on column public.precos_praticados_itens.municipio_id is 'FK para public.municipios; só preencher após codigo IBGE ou referência externa verificada.';
 comment on column public.precos_praticados_itens.codigo_municipio_ibge is 'codigoMunicipioIbge, se fornecido. Não confundir com codigo_municipio (codigoMunicipio).';
-
--- Backfill somente por campos explicitamente identificados como IBGE. Sem correspondência não inventa vínculo.
-with observados as (
-  select nullif(btrim(e.municipio_ibge), '') as codigo_ibge,
-         nullif(btrim(e.municipio_nome), '') as nome, upper(nullif(btrim(e.uf), '')) as uf
-    from public.entidades e
-  union all
-  select nullif(btrim(f.codigo_municipio_ibge::text), ''), nullif(btrim(f.municipio), ''),
-         upper(nullif(btrim(f.uf), ''))
-    from public.fornecedores f
-  union all
-  select nullif(btrim(u.codigo_municipio_ibge::text), ''), nullif(btrim(u.nome_municipio_ibge), ''),
-         upper(nullif(btrim(u.sigla_uf), ''))
-    from public.uasgs u
-), unicos as (
-  select codigo_ibge,
-         min(nome) as nome,
-         min(uf) as uf
-    from observados
-   where codigo_ibge ~ '^\d{7}$'
-     and nome is not null
-     and uf ~ '^[A-Z]{2}$'
-   group by codigo_ibge
-  having count(distinct private.normalizar_nome_municipio(nome)) = 1
-     and count(distinct uf) = 1
-)
-insert into public.municipios (codigo_ibge, nome, uf, status, fonte_canonica, evidencias)
-select codigo_ibge, nome, uf, 'confirmado', 'codigo_ibge:backfill_fontes',
-       jsonb_build_object('origem', 'backfill_migration_20261114100000', 'campos', 'codigo_municipio_ibge/codigo_ibge')
-  from unicos
-on conflict (codigo_ibge) where codigo_ibge is not null do nothing;
-
--- Caso de referência PNCP Navegantes. A chave IBGE é canônica; os dois suggest.id ficam pendentes,
--- pois o contrato semântico do campo id ainda não foi confirmado.
-insert into public.municipios (codigo_ibge, nome, uf, status, fonte_canonica, evidencias)
-values (
-  '4211306', 'Navegantes', 'SC', 'confirmado', 'codigo_ibge:referencia_validada',
-  jsonb_build_object('origem', 'caso_pncp_navegantes', 'data_evidencia', '2026-11-14')
-)
-on conflict (codigo_ibge) where codigo_ibge is not null do nothing;
-
-insert into public.municipio_referencias_externas (
-  fonte, namespace, valor_externo, municipio_id, candidato_municipio_id,
-  nome_observado, uf_observada, status, metodo_resolucao, evidencias
-)
-select 'pncp', 'suggest_municipio', v.valor_externo, null, m.id,
-       'Navegantes', 'SC', 'pendente', 'nome_uf',
-       jsonb_build_object(
-         'endpoint', '/api/search/suggest',
-         'parametros', jsonb_build_object('tipos_documento', 'edital', 'campo', 'municipios', 'q', 'nave', 'tam_pagina', 200),
-         'total_observado', v.total,
-         'motivo_pendencia', 'semantica_de_suggest_id_ainda_nao_confirmada',
-         'data_evidencia', '2026-11-14'
-       )
-  from (values ('4211306', 937), ('4480', 2)) as v(valor_externo, total)
-  join public.municipios m on m.codigo_ibge = '4211306'
-on conflict (fonte, namespace, valor_externo) do nothing;
-
--- Backfill de FK a partir de IBGE já armazenado. Nunca usa codigo_municipio sem sufixo IBGE.
-update public.entidades e
-   set municipio_id = m.id
-  from public.municipios m
- where e.municipio_id is null and e.municipio_ibge = m.codigo_ibge;
-
-update public.unidades u
-   set municipio_id = m.id
-  from public.municipios m
- where u.municipio_id is null and u.municipio_ibge = m.codigo_ibge;
-
-update public.orgaos o
-   set municipio_id = m.id
-  from public.municipios m
- where o.municipio_id is null and o.municipio_ibge = m.codigo_ibge;
-
-update public.uasgs u
-   set municipio_id = m.id
-  from public.municipios m
- where u.municipio_id is null and u.municipio_ibge = m.codigo_ibge;
-
-update public.fornecedores f
-   set municipio_id = m.id
-  from public.municipios m
- where f.municipio_id is null and f.codigo_municipio_ibge::text = m.codigo_ibge;
-
-update public.licitacoes_externas l
-   set municipio_id = m.id
-  from public.municipios m
- where l.municipio_id is null
-   and l.fonte = 'pncp'
-   and coalesce(l.raw ->> 'codigo_ibge', l.raw ->> 'codigoIbge') = m.codigo_ibge
-   and (l.uf is null or l.uf = m.uf);
-
-update public.precos_praticados_itens p
-   set municipio_id = m.id
-  from public.municipios m
- where p.municipio_id is null
-   and p.codigo_municipio_ibge = m.codigo_ibge;
-
--- Validar FKs após o backfill; NOT VALID reduz o bloqueio inicial em tabelas grandes.
-do $$
-declare
-  v record;
-begin
-  for v in
-    select * from (values
-      ('public.entidades', 'entidades_municipio_id_fkey'),
-      ('public.unidades', 'unidades_municipio_id_fkey'),
-      ('public.orgaos', 'orgaos_municipio_id_fkey'),
-      ('public.uasgs', 'uasgs_municipio_id_fkey'),
-      ('public.fornecedores', 'fornecedores_municipio_id_fkey'),
-      ('public.licitacoes_externas', 'licitacoes_externas_municipio_id_fkey'),
-      ('public.precos_praticados_itens', 'precos_praticados_itens_municipio_id_fkey')
-    ) x(tabela, constraint_name)
-  loop
-    if exists (
-      select 1 from pg_constraint
-       where conrelid = v.tabela::regclass
-         and conname = v.constraint_name
-         and not convalidated
-    ) then
-      execute format('alter table %s validate constraint %I', v.tabela, v.constraint_name);
-    end if;
-  end loop;
-end $$;
-
--- Referências verificadas geradas a partir dos campos IBGE existentes (fonte + namespace, sem misturar IDs).
-insert into public.municipio_referencias_externas (
-  fonte, namespace, valor_externo, municipio_id, nome_observado, uf_observada,
-  status, metodo_resolucao, evidencias, verificado_em
-)
-select distinct 'pncp', 'codigo_ibge', m.codigo_ibge, m.id, m.nome, m.uf,
-       'verificado', 'codigo_ibge', jsonb_build_object('origem', 'backfill_entidades_unidades'), now()
-  from public.municipios m
- where exists (select 1 from public.entidades e where e.municipio_ibge = m.codigo_ibge)
-    or exists (select 1 from public.unidades u where u.municipio_ibge = m.codigo_ibge)
-    or exists (select 1 from public.orgaos o where o.municipio_ibge = m.codigo_ibge)
-on conflict (fonte, namespace, valor_externo) do nothing;
-
-insert into public.municipio_referencias_externas (
-  fonte, namespace, valor_externo, municipio_id, nome_observado, uf_observada,
-  status, metodo_resolucao, evidencias, verificado_em
-)
-select distinct 'comprasgov', 'codigo_municipio_ibge', m.codigo_ibge, m.id, m.nome, m.uf,
-       'verificado', 'codigo_ibge', jsonb_build_object('origem', 'backfill_uasgs'), now()
-  from public.municipios m
- where exists (select 1 from public.uasgs u where u.codigo_municipio_ibge::text = m.codigo_ibge)
-on conflict (fonte, namespace, valor_externo) do nothing;
-
--- O DTO oficial de UASG traz codigoMunicipio e codigoMunicipioIbge no mesmo registro.
--- Só essa coocorrência permite confirmar o ID próprio do Compras.gov como alias do município IBGE.
-insert into public.municipio_referencias_externas (
-  fonte, namespace, valor_externo, municipio_id, nome_observado, uf_observada,
-  status, metodo_resolucao, evidencias, verificado_em
-)
-select distinct 'comprasgov', 'codigo_municipio', u.codigo_municipio::text, m.id,
-       u.nome_municipio_ibge, upper(u.sigla_uf), 'verificado', 'codigo_ibge',
-       jsonb_build_object(
-         'origem', 'backfill_uasgs',
-         'campos_coocorrentes', jsonb_build_array('codigoMunicipio', 'codigoMunicipioIbge'),
-         'codigo_municipio_ibge', u.codigo_municipio_ibge::text
-       ), now()
-  from public.uasgs u
-  join public.municipios m on m.codigo_ibge = u.codigo_municipio_ibge::text
- where u.codigo_municipio is not null
-   and u.codigo_municipio_ibge is not null
-   and upper(u.sigla_uf) = m.uf
-   and private.normalizar_nome_municipio(u.nome_municipio_ibge) = m.nome_normalizado
-on conflict (fonte, namespace, valor_externo) do nothing;
 
 commit;

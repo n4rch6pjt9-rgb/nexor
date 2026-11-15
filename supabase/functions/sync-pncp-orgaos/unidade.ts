@@ -23,11 +23,13 @@ export type MunicipioUnidadePncp = {
 export function municipioDaUnidade(unidade: unknown): MunicipioUnidadePncp | null {
   const raw = record(unidade);
   if (!raw) return null;
-  const municipio = record(raw.municipio) ?? raw;
+  const aninhado = record(raw.municipio);
+  const municipio = aninhado ?? raw;
   const uf = record(municipio.uf) ?? raw;
-  const idBruto = texto(municipio.id);
+  // `id` e `nome` de nível superior pertencem à unidade, não ao município: só o objeto `municipio` os carrega.
+  const idBruto = aninhado ? texto(aninhado.id) : null;
   const id = idBruto && /^\d+$/.test(idBruto) && Number(idBruto) > 0 ? idBruto : null;
-  const nome = texto(municipio.nome) ?? texto(raw.municipioNome);
+  const nome = (aninhado ? texto(aninhado.nome) : null) ?? texto(raw.municipioNome);
   const ufBruta = (texto(uf.siglaUF) ?? texto(raw.ufSigla))?.toUpperCase() ?? null;
   const ufSigla = ufBruta && /^[A-Z]{2}$/.test(ufBruta) ? ufBruta : null;
   const codigoBruto = texto(municipio.codigoIbge) ?? texto(raw.codigoIbge);
@@ -36,13 +38,19 @@ export function municipioDaUnidade(unidade: unknown): MunicipioUnidadePncp | nul
   return { id, nome, uf: ufSigla, codigoIbge };
 }
 
-/** Namespace do identificador oficial. Municipio.id nunca é tratado como codigo IBGE. */
+/**
+ * Namespace do identificador oficial. Municipio.id nunca é tratado como codigo IBGE.
+ * Municipio.id só é `verificado` quando a mesma unidade oficial traz também o codigoIbge (o par id+IBGE vem do
+ * mesmo DTO); sozinho, o id fica pendente e não cria vínculo (nome+UF só gera candidato).
+ */
 export function identificadorMunicipioFonte(municipio: MunicipioUnidadePncp): {
   namespace: string | null;
   valor: string | null;
   verificado: boolean;
 } {
-  if (municipio.id) return { namespace: "municipio_id", valor: municipio.id, verificado: true };
+  if (municipio.id) {
+    return { namespace: "municipio_id", valor: municipio.id, verificado: Boolean(municipio.codigoIbge) };
+  }
   if (municipio.codigoIbge) return { namespace: "codigo_ibge", valor: municipio.codigoIbge, verificado: true };
   return { namespace: null, valor: null, verificado: false };
 }

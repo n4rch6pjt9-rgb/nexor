@@ -51,7 +51,7 @@ async function resolverMunicipioUnidade(
     },
   });
   if (error) {
-    cache.set(chave, null);
+    // Falha transitória não é cacheada: o próximo registro do mesmo município tenta de novo na mesma execução.
     return { municipioId: null, erros: [`resolver_municipio: ${error.message}`] };
   }
 
@@ -60,10 +60,14 @@ async function resolverMunicipioUnidade(
     ? resultado.municipio_id
     : null;
   cache.set(chave, municipioId);
-  if (!municipioId || !municipio.nome || !municipio.uf) return { municipioId, erros: [] };
+  // Sem codigoIbge na unidade oficial não há cruzamento: o município pode ter sido resolvido, mas nenhum alias do
+  // suggest é promovido (nome+UF e coincidência numérica isolada não confirmam semântica de ID).
+  if (!municipioId || !municipio.nome || !municipio.uf || !municipio.codigoIbge) {
+    return { municipioId, erros: [] };
+  }
 
   // O suggest do PNCP não documenta o tipo de items[].id. Só promovemos um alias pendente
-  // quando seu valor coincide com Municipio.id ou codigoIbge da unidade oficial.
+  // quando seu valor coincide com Municipio.id ou codigoIbge da unidade oficial (que traz os dois no mesmo DTO).
   const idsConfirmaveis = [...new Set([municipio.id, municipio.codigoIbge].filter((v): v is string => Boolean(v)))];
   if (idsConfirmaveis.length === 0) return { municipioId, erros: [] };
 
@@ -311,7 +315,7 @@ Deno.serve(async (req) => {
                 try {
                   let unidadesSemErro = true;
                   let unidadesCompletas = true;
-                  const unidades = await integracao.getUnidades(cnpj);
+                  const unidades = await integracao.getUnidades(cnpj, { syncRunId: runId });
                   const unidadesRequestHash = await hashPayload({ cnpj });
                   const unidadesContentHash = await sha256Hex(JSON.stringify(unidades));
                   await storeSourceRecord(client, {
@@ -331,7 +335,8 @@ Deno.serve(async (req) => {
                     }
                     const linha = linhaUnidade(orgaoId, unidadeRaw);
                     if (!linha) {
-                      unidadesSemErro = false;
+                      // Defeito permanente do dado de origem: registra, mas não impede o carimbo do TTL (senão o
+                      // órgão seria rebuscado a cada execução e consumiria o orçamento de tempo dos demais).
                       stats.erros++;
                       await logSyncRequest(client, {
                         syncRunId: runId,
@@ -381,7 +386,7 @@ Deno.serve(async (req) => {
                         parametros: { cnpj, codigoUnidade, tabela: "unidades" },
                         erro: "upsert unidades failed",
                       });
-                    } else {
+                    } else if (unidadeResult !== "inalterado") {
                       stats.unidades_inseridas++;
                     }
                   }
