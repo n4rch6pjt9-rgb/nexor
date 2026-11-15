@@ -1,0 +1,96 @@
+# Coleta diária do PGC (PCA do Compras.gov, spec 0057): roda o coletor Python (services/coletor-externo) no runner do
+# GitHub, na mesma estrutura do Coletor de Preços (.github/workflows/coletor-precos.yml). Sem actions de terceiros
+# (regra do repo): checkout por git, Python do runner.
+# O coletor lê dadosabertos.compras.gov.br (modulo-pgc/2_consultarPgcDetalheCatalogo) por ano e classe e grava
+# public.pca_pgc_itens por upsert idempotente. Alimenta o ramo PGC de v_bi_pca_radar e a verificação
+# `pgc_dias_sem_coleta` da saúde (atenção 1,5 dia, crítico 8 dias): por isso a coleta é diária.
+# Pré-requisitos (secrets do repositório): SUPABASE_URL e SUPABASE_SERVICE_ROLE_KEY.
+name: Coletor PGC
+
+on:
+  schedule:
+    - cron: "30 9 * * *"   # Todo dia às 06:30 em Brasília (mantém pgc_dias_sem_coleta abaixo de 1,5 dia)
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "true = só consulta, não grava"
+        default: "false"
+        required: false
+      anos:
+        description: "Anos do PCA separados por vírgula (vazio = ano corrente e seguinte)"
+        default: ""
+        required: false
+      classes:
+        description: "Classes separadas por vírgula (vazio = 7830,7220)"
+        default: ""
+        required: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: coletor-pgc
+  cancel-in-progress: false
+
+jobs:
+  coletar:
+    name: coletar PGC
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    env:
+      DRY_RUN: ${{ github.event.inputs.dry_run || 'false' }}
+      ANOS: ${{ github.event.inputs.anos || '' }}
+      CLASSES: ${{ github.event.inputs.classes || '' }}
+    steps:
+      - name: Checkout (git, sem actions de terceiros)
+        run: |
+          git init -q .
+          git remote add origin "https://github.com/${GITHUB_REPOSITORY}.git"
+          # Token só no cabeçalho do fetch, sem gravar em .git/config (padrão do pr-quality.yml).
+          auth="AUTHORIZATION: basic $(printf 'x-access-token:%s' "$GH_TOKEN" | base64 -w0)"
+          git -c http.extraheader="$auth" fetch -q --depth 1 origin "${GITHUB_SHA}"
+          git checkout -q FETCH_HEAD -- services/coletor-externo
+        env:
+          GH_TOKEN: ${{ github.token }}
+
+      - name: Conferir segredos
+        env:
+          TEM_URL: ${{ secrets.SUPABASE_URL != '' }}
+          TEM_CHAVE: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY != '' }}
+        run: |
+          if [ "${TEM_URL}" != "true" ] || [ "${TEM_CHAVE}" != "true" ]; then
+            echo "Secrets SUPABASE_URL e SUPABASE_SERVICE_ROLE_KEY ausentes no repositório."; exit 1
+          fi
+
+      # Entradas do disparo manual chegam por variável de ambiente (nunca interpoladas no script) e são validadas
+      # antes de virar argumento do coletor.
+      - name: Validar entradas
+        run: |
+          case "${DRY_RUN}" in true|false) ;; *) echo "dry_run inválido: use true ou false."; exit 1;; esac
+          if [ -n "${ANOS}" ] && ! printf '%s' "${ANOS}" | grep -Eq '^[0-9]{4}(,[0-9]{4})*$'; then
+            echo "anos inválido: use anos de 4 dígitos separados por vírgula (ex.: 2026,2027)."; exit 1
+          fi
+          if [ -n "${CLASSES}" ] && ! printf '%s' "${CLASSES}" | grep -Eq '^[0-9]+(,[0-9]+)*$'; then
+            echo "classes inválido: use códigos numéricos separados por vírgula (ex.: 7830,7220)."; exit 1
+          fi
+
+      # Só binários prontos (--only-binary): nenhum setup.py de pacote roda aqui. Os segredos ficam fora deste passo.
+      - name: Dependências
+        working-directory: services/coletor-externo
+        run: |
+          python3 --version
+          python3 -m pip install --quiet --disable-pip-version-check --only-binary :all: -r requirements.txt
+
+      # Os segredos entram só neste passo (padrão do saude.yml e coletor-precos.yml). O atraso entre requisições
+      # fica no padrão do coletor (mínimo de 1 s).
+      - name: Coleta
+        working-directory: services/coletor-externo
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: |
+          args=(--coleta pgc)
+          [ "${DRY_RUN}" = "true" ] && args+=(--dry-run)
+          [ -n "${ANOS}" ] && args+=(--anos "${ANOS}")
+          [ -n "${CLASSES}" ] && args+=(--classes "${CLASSES}")
+          python3 -m coletor.main "${args[@]}"
