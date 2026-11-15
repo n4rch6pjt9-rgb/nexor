@@ -155,6 +155,48 @@ def test_supabase_retry_com_backoff_e_retry_after(destino_supabase):
     assert len(esperas) == 2 and esperas[1] == 7
 
 
+def test_supabase_520_apos_persistir_objeto_recupera_com_duplicate(destino_supabase):
+    class StorageCom520AposPersistir(_Storage):
+        def __init__(self):
+            super().__init__()
+            self.primeiro_post = True
+
+        def post(self, url, data=None, headers=None, timeout=None, allow_redirects=True):
+            if self.primeiro_post:
+                self.primeiro_post = False
+                assert allow_redirects is False
+                self.chamadas.append(("POST", url, dict(headers or {}), timeout))
+
+                # O servidor persiste o objeto, mas a resposta se perde.
+                self.objetos[OBJETO] = data
+                return _Resp(520, b"upstream error")
+
+            return super().post(url, data, headers, timeout, allow_redirects)
+
+    storage = StorageCom520AposPersistir()
+    esperas = []
+
+    arq = ArquivoRaw(
+        "licitacao_itens",
+        "pncp",
+        execucao_id=EID,
+        relogio=lambda: QUANDO,
+        http=storage,
+        dormir=esperas.append,
+    )
+
+    arq.adicionar(
+        {"licitacao_id": 1, "numero_item": 1},
+        {"descricao": "Teste de recuperação HTTP 520"},
+    )
+
+    (manifesto,) = arq.fechar()
+
+    assert [c[0] for c in storage.chamadas] == ["POST", "POST", "GET"]
+    assert len(esperas) == 1
+    assert manifesto["md5"] == hashlib.md5(storage.objetos[OBJETO]).hexdigest()
+    assert manifesto["uri"] == f"supabase://arquivo-raw/{OBJETO}"
+
 def test_supabase_erro_persistente_para_a_coleta(destino_supabase):
     storage = _Storage()
     storage.respostas_post = [_Resp(503, b"x")] * 10
