@@ -93,6 +93,7 @@ jobs:
       ORIGEM: ${{ github.event_name == 'schedule' && 'cron' || 'manual' }}
     steps:
       - name: Checkout (git, sem actions de terceiros)
+        id: checkout
         run: |
           git init -q .
           git remote add origin "https://github.com/${GITHUB_REPOSITORY}.git"
@@ -104,16 +105,19 @@ jobs:
           GH_TOKEN: ${{ github.token }}
 
       - name: Conferir segredos
+        id: segredos
         env:
           TEM_URL: ${{ secrets.SUPABASE_URL != '' }}
           TEM_CHAVE: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY != '' }}
         run: |
           if [ "${TEM_URL}" != "true" ] || [ "${TEM_CHAVE}" != "true" ]; then
-            echo "Secrets SUPABASE_URL e SUPABASE_SERVICE_ROLE_KEY ausentes no repositório."; exit 1
+            echo "Secrets SUPABASE_URL e SUPABASE_SERVICE_ROLE_KEY ausentes no repositório."
+            exit 1
           fi
 
-      # Só binários prontos (--only-binary): nenhum setup.py de pacote roda aqui. Os segredos ficam fora deste passo.
+      # Só binários prontos (--only-binary): nenhum setup.py de pacote roda aqui.
       - name: Dependências
+        id: dependencias
         working-directory: services/coletor-externo
         run: |
           python3 --version
@@ -121,8 +125,61 @@ jobs:
 
       # Os segredos entram só neste passo (padrão do saude.yml).
       - name: Coleta
+        id: coleta
         working-directory: services/coletor-externo
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
         run: bash ci/coletor-pncp.sh rodar "${ETAPA}"
+
+      - name: Resumo da etapa
+        if: always()
+        env:
+          ETAPA: ${{ matrix.etapa }}
+          EVENTO: ${{ github.event_name }}
+          RESULTADO_JOB: ${{ job.status }}
+          RESULTADO_CHECKOUT: ${{ steps.checkout.outcome }}
+          RESULTADO_SECRETS: ${{ steps.segredos.outcome }}
+          RESULTADO_DEPENDENCIAS: ${{ steps.dependencias.outcome }}
+          RESULTADO_COLETA: ${{ steps.coleta.outcome }}
+        run: |
+          python3 - <<'PY' >> "$GITHUB_STEP_SUMMARY"
+          import html
+          import os
+
+          def celula(valor):
+              texto = html.escape(str(valor))
+              return texto.replace("|", "&#124;").replace("\r\n", "<br>").replace("\n", "<br>")
+
+          status_job = os.environ.get("RESULTADO_JOB", "desconhecido")
+          simbolo = {
+              "success": "🟢",
+              "failure": "🔴",
+              "cancelled": "⚪",
+          }.get(status_job, "🟡")
+
+          evento = os.environ.get("EVENTO", "desconhecido")
+          origem = "Agendado" if evento == "schedule" else "Manual"
+
+          print(f"## Coletor PNCP — etapa `{celula(os.environ.get('ETAPA', 'desconhecida'))}`")
+          print()
+          print(f"**Resultado do job:** {simbolo} `{celula(status_job)}`")
+          print(f"**Disparo:** {celula(origem)} (`{celula(evento)}`)")
+          print(f"**Dry run:** `{celula(os.environ.get('DRY_RUN', 'não informado'))}`")
+          print(f"**Busca rápida:** `{celula(os.environ.get('RAPIDO', 'não informado'))}`")
+          print()
+          print("| Passo | Resultado |")
+          print("|---|---|")
+
+          for nome, variavel in (
+              ("Checkout", "RESULTADO_CHECKOUT"),
+              ("Conferência de secrets", "RESULTADO_SECRETS"),
+              ("Dependências", "RESULTADO_DEPENDENCIAS"),
+              ("Coleta", "RESULTADO_COLETA"),
+          ):
+              resultado = os.environ.get(variavel, "não executado")
+              print(f"| {nome} | `{celula(resultado)}` |")
+
+          print()
+          print("> O resultado dos passos não comprova a completude dos dados coletados.")
+          PY
