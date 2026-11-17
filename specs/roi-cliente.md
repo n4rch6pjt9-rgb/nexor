@@ -1,7 +1,7 @@
 # Spec — ROI do cliente (v1)
 
 > Status: rascunho para revisão. Número da spec: a definir (seguir a numeração de `specs/`).
-> Migration: `20261115130000_roi_cliente.sql`.
+> Migration: `20261115152728_roi_cliente_v1.sql` e `20261115152757_roi_cnpj_raiz_search_path.sql` (já aplicadas em produção).
 
 ## 1. Objetivo
 
