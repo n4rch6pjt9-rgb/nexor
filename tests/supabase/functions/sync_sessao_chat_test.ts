@@ -46,9 +46,14 @@ function mock(db: Db) {
       // deno-lint-ignore no-explicit-any
       const filtros: Array<(r: any) => boolean> = [];
       const fonte = () => tabela === "private.integra_compras_run" ? db.runs : db.mensagens!;
+      let faixa: [number, number] | null = null;
       // deno-lint-ignore no-explicit-any
       const b: any = {
         select: () => b,
+        order: () => b,
+        range: (de: number, ate: number) => (faixa = [de, ate], b),
+        // deno-lint-ignore no-explicit-any
+        eq: (c: string, v: any) => (filtros.push((r) => r[c] === v), b),
         // deno-lint-ignore no-explicit-any
         in: (c: string, v: any[]) => (filtros.push((r) => v.includes(r[c])), b),
         // deno-lint-ignore no-explicit-any
@@ -57,7 +62,10 @@ function mock(db: Db) {
         gte: (c: string, v: any) => (filtros.push((r) => r[c] >= v), b),
         // deno-lint-ignore no-explicit-any
         then: (ok: any, err: any) =>
-          Promise.resolve({ data: fonte().filter((r) => filtros.every((f) => f(r))), error: null }).then(ok, err),
+          Promise.resolve({
+            data: ((l) => faixa ? l.slice(faixa[0], faixa[1] + 1) : l)(fonte().filter((r) => filtros.every((f) => f(r)))),
+            error: null,
+          }).then(ok, err),
         // deno-lint-ignore no-explicit-any
         insert: (row: any) => {
           const id = db.runs.length + 1;
@@ -354,4 +362,19 @@ Deno.test("K-3: orçamento de tempo, nenhuma compra nova depois de 90 s", async 
   const json = await res.json();
   assertEquals(consultados, [1]);
   assertEquals(json.parada, "tempo");
+});
+
+Deno.test("K-3: mais de 1000 runs no dia são lidos em páginas e entram no teto diário", async () => {
+  // 1500 runs de hoje com 1 chamada cada = 1500 chamadas, bem acima do teto de 300: não pode consultar nada.
+  const runs = Array.from({ length: 1500 }, (_, i) => ({
+    chave_compra: `7${String(i).padStart(16, "0")}`,
+    iniciado_em: "2026-11-10T09:00:00.000Z",
+    terminado_em: "x",
+    chamadas: { "200": 1 },
+  }));
+  const db: Db = { alvos: [lic(1, "18017805000292026", "2026-11-10T12:00:00Z")], runs };
+  const { json, consultados } = await rodar(db);
+  assertEquals(consultados.length, 0);
+  assertEquals(json.limite_diario_atingido, true);
+  assertEquals(json.chamadas_hoje, 1500);
 });

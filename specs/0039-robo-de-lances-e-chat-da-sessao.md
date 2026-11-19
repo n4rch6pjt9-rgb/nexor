@@ -104,6 +104,49 @@ tenant. A etapa 1 corrige esse código em vez de criar outro:
   Só lê, não chama o Integra Compras. A tela no Dashboard usa essa rota, `GET /chat` e `POST /sync-chat`.
 - Alerta de convocação (K-5): ver "Etapa 1b" abaixo. O sino do Dashboard vem num PR do Dashboard depois do backend.
 
+### Rotas `/estrategia` e `/auditoria`: protótipo das etapas 3 e 4, fora desta entrega
+
+O código do Cursor de 25/10 trouxe duas rotas que pertencem às etapas 3 e 4 (K-8 a K-10), paradas. Elas ficam no
+`api-disputa` só como protótipo, **sem uso em produção** (a extensão não existe), e foram contidas na revisão de
+código desta etapa:
+
+- `GET /estrategia`: não presume mais `intervalo_minimo_reais` (era 10,00 fixo) nem `modo_disputa` (era `"aberto"`
+  fixo): voltam `null`, porque os dois vêm do edital e a leitura é da etapa 2 (K-8). Com o intervalo ausente nenhum item
+  é `habilitado` (piso ausente = robô não atua, K-8; intervalo ausente também). `piso_centavos` continua vindo de
+  `pisoTenantCentavos`.
+- `POST /auditoria`: só admin do tenant (`operacao` recebe 403, K-10); corpo validado (`valor`, `piso`, `modo_disputa` e
+  `tipo` obrigatórios; sem padrão inventado); a licitação precisa estar no pipeline do tenant (404); o resultado vem do
+  `tipo` (`BLOQUEIO_PISO` → `bloqueado_piso`, `RECUSADO_INTERVALO` → `recusado_intervalo`); `detalhes` guarda só
+  `recomendacao_id` e `regra_version`, não o corpo do cliente.
+- Falta, e fica para a revisão desta spec antes da etapa 3: tabela de aceite (K-10), leitura do intervalo e do modo no
+  edital (K-8) e CAs próprios. Até lá, nenhuma tela nem extensão deve chamar essas rotas. Ninguém liga o robô com base
+  nelas.
+
+### Revisão de código da etapa 1 (19/11/2026)
+
+Correções feitas depois de revisão (`revisor-codigo`, `revisor-seguranca`, `revisor-tenant`):
+
+- Consulta ao Integra Compras com prazo total de 25 s (`PRAZO_CONSULTA_MS`, `_shared/serpro.ts`): timeout de cada chamada e
+  `Retry-After` limitados pelo prazo. Prazo esgotado entre páginas grava o que leu e avisa no run.
+- Corrida entre cron e usuário (ou dois cliques): depois de inserir o run, quem não tem o menor id na janela de 5 min
+  desiste antes de chamar a fonte (`pulada`; `/sync-chat` responde 429). Sem lock no banco, então não é garantia
+  de 100%.
+- Coleta agendada lê `integra_compras_run` em páginas de 1000 e falha se passar de 50 mil linhas na janela.
+- `GET /chat`: `?limite=` (padrão 500, máximo 2000), devolve as mais recentes em ordem crescente e `truncado`.
+- `dataHora` com mais de 10 min no futuro vira aviso no run (fuso suspeito); a data não é corrigida.
+- Alerta: o CNPJ só é conferido no formato (14 posições), sem dígito verificador, para não apagar o aviso
+  "a sua empresa foi convocada" por erro de cálculo.
+
+**Decisões que ficam para a etapa 3 (K-10) ou depois da medição (pergunta 3):**
+
+- Ordem `ASC` com prazo cortado: numa compra com tantas páginas que o prazo de 25 s não alcança, cada rodada relê as
+  primeiras páginas e as mensagens mais novas (as que geram alerta) podem não chegar. O aviso fica só no run. Se a
+  medição mostrar chat grande ou API lenta, ler em `DESC` ou guardar a página de retomada.
+- `POST /auditoria`: sem limite de volume nem idempotência por (licitação, item, tipo, valor); sem teto diário de
+  chamadas pagas por empresa. Entram junto com a tabela de aceite (K-10).
+- `GET /estrategia` passou a devolver `intervalo_minimo_reais` e `modo_disputa` nulos e `habilitado: false`: o
+  Dashboard precisa tratar `null` (mudança de contrato, ver o PR).
+
 ### Etapa 1b: alerta de convocação (K-5), decisões de 08/11/2026
 
 Base: 163 mensagens reais de 2 compras (lidas em 08/11). Sem tabela oficial de `categoria`, a detecção é pelo texto
@@ -172,6 +215,10 @@ Base: 163 mensagens reais de 2 compras (lidas em 08/11). Sem tabela oficial de `
 
 ## Contrato
 
+> **Nomes desatualizados:** onde esta tabela e "Impacto em dados" dizem `api-sessao`, `sync-integra-compras` e
+> `INTEGRA_COMPRAS_CONSUMER_*`, vale o implementado: `api-disputa` (`GET /chat`, `POST /sync-chat`), `sync-sessao-chat`
+> e `SERPRO_CONSUMER_KEY` / `SERPRO_CONSUMER_SECRET`. A K-5 entrega só o sino (e-mail ficou para depois).
+
 | ID | Contrato | Entrada | Saída | Erros | Quem |
 |---|---|---|---|---|---|
 | K-1 | Tabela `public.sessao_mensagens` (global, RLS ligada, sem policy; leitura só por Edge Function) | — | `chave_compra` (texto de 17 dígitos, como o Integra Compras), `id_uasg`, `id_modalidade`, `numero`, `ano`, `identificador_item` (nulo = mensagem da compra), `chave_mensagem` (uuid da fonte, único), `tipo` (`mensagem` \| `diligencia`), `categoria`, `tipo_remetente`, `texto`, `data_hora` (timestamptz, ms), `fonte` (`integra_compras` \| `extensao`), `coletado_em`, `expira_em` | — | escrita: `service_role` (coletor e `api-sessao`); leitura: `api-sessao` |
@@ -198,7 +245,7 @@ Só a etapa 1 tem CAs completos. As etapas 2 a 4 ganham CAs na revisão desta sp
 | CA-4 | K-3 | **Dado** retorno 401, **quando** o coletor consulta, **então** pede token novo uma única vez e repete a chamada. | idem |
 | CA-5 | K-3 | **Dado** retorno 502 (manutenção da base), **quando** o coletor consulta, **então** K-2 registra erro e nenhuma mensagem é apagada ou inventada. | idem |
 | CA-6 | K-4 | **Dado** um usuário sem vínculo com tenant ativo, **quando** chama `action=mensagens`, **então** recebe 403. | Deno `tests/supabase/api-sessao/*` |
-| CA-7 | K-5 | **Dado** uma mensagem nova "convoca o fornecedor ... para envio de anexo" num certame do pipeline, **quando** o coletor grava, **então** nasce uma notificação para o tenant com link para a aba Sessão. | Deno |
+| CA-7 | K-5 | *(substituído por CA-7a a CA-7f, "Etapa 1b")* **Dado** uma mensagem nova "convoca o fornecedor ... para envio de anexo" num certame do pipeline, **quando** o coletor grava, **então** nasce uma notificação para o tenant com link para a aba Sessão. | Deno |
 | CA-8 | K-7 | **Dado** mensagens com `expira_em` no passado, **quando** a rotina de retenção roda, **então** o texto bruto é apagado e a contagem de K-2 continua igual. | SQL ou Deno |
 | CA-9 | aba Sessão | **Dado** um certame sem mensagens, **quando** o operador abre a aba, **então** vê o estado vazio com a fonte e o horário da última consulta, nunca mensagem fictícia. | vitest `src/test/...` |
 | CA-10 | K-11 | **Dado** uma sala em que o botão de lance mudou de seletor, **quando** a extensão abre o item, **então** ela marca `divergente`, não envia nem sugere lance, avisa o operador e grava o evento no backend. | etapa 2 (a definir) |
