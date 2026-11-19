@@ -70,6 +70,13 @@ interface TokenCache {
 
 const GATEWAY_URL = "https://gateway.apiserpro.serpro.gov.br";
 const TIMEOUT_MS = 20_000;
+/**
+ * Prazo total de UMA consulta (chat ou diligências, todas as páginas, com retries e esperas de Retry-After).
+ * Sem ele o pior caso por página era 3×20 s de timeout + 2×30 s de espera, multiplicado por até 50 páginas.
+ * Cada compra faz 2 consultas (chat e diligências): com 25 s cada, uma compra gasta no máximo ~50 s; somado aos 90 s
+ * em que o cron ainda abre compra nova (sync-sessao-chat), a rodada fica abaixo dos 150 s da Edge Function.
+ */
+export const PRAZO_CONSULTA_MS = 25_000;
 const MAX_TENTATIVAS_RETRY = 3;
 const RETRY_AFTER_MAX_S = 30;
 const CHAVE_COMPRA_RE = /^\d{17}$/;
@@ -88,6 +95,12 @@ export const MAX_PAGINAS = 50;
 
 let cacheToken: TokenCache | null = null;
 
+/** Relógio em ms; substituível nos testes. */
+let agoraMs = () => Date.now();
+export function definirRelogioParaTeste(fn: () => number): void {
+  agoraMs = fn;
+}
+
 /** Pausa entre tentativas; substituível nos testes. */
 let dormir = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
 export function definirDormirParaTeste(fn: (ms: number) => Promise<void>): void {
@@ -101,6 +114,8 @@ export function definirDormirParaTeste(fn: (ms: number) => Promise<void>): void 
 export async function obterTokenSerpro(
   consumerKey?: string,
   consumerSecret?: string,
+  /** Tempo que ainda resta à consulta em andamento; limita o timeout da chamada de token. */
+  timeoutMs: number = TIMEOUT_MS,
 ): Promise<string> {
   const agora = Date.now();
   if (cacheToken && agora < cacheToken.expiraEmMs) {
@@ -123,7 +138,7 @@ export async function obterTokenSerpro(
       "Content-Type": "application/x-www-form-urlencoded",
     },
     body: "grant_type=client_credentials",
-    signal: AbortSignal.timeout(TIMEOUT_MS),
+    signal: AbortSignal.timeout(Math.max(1, Math.min(timeoutMs, TIMEOUT_MS))),
   });
 
   if (!res.ok) {
@@ -184,10 +199,20 @@ async function consultarTodasAsPaginas(
   }
   const mensagens: MensagemIntegra[] = [];
   const statusPaginas: number[] = [];
+  const limiteMs = agoraMs() + PRAZO_CONSULTA_MS;
   for (let pagina = 0; pagina < MAX_PAGINAS; pagina++) {
+    // Prazo esgotado entre páginas: o que foi lido (e cobrado) vale; a leitura seguinte refaz o resto.
+    if (pagina > 0 && agoraMs() >= limiteMs) {
+      return {
+        status: statusPaginas[0],
+        mensagens,
+        statusPaginas,
+        aviso: `Integra Compras: prazo de ${PRAZO_CONSULTA_MS / 1000} s da consulta esgotado; as páginas seguintes não foram lidas.`,
+      };
+    }
     let r: PaginaIntegra;
     try {
-      r = await consultarPagina(chaveCompra, tipo, pagina);
+      r = await consultarPagina(chaveCompra, tipo, pagina, limiteMs);
     } catch (e) {
       if (e instanceof ErroIntegraCompras && statusPaginas.length > 0) {
         throw new ErroIntegraCompras(e.message, e.status, [...statusPaginas], [...mensagens]);
@@ -230,11 +255,18 @@ async function consultarPagina(
   chaveCompra: string,
   tipo: MensagemIntegra["tipo"],
   pagina: number,
+  limiteMs: number,
 ): Promise<PaginaIntegra> {
+  /** Tempo que resta no prazo da consulta; esgotado, a página falha em vez de abrir outra chamada. */
+  const restante = () => {
+    const r = limiteMs - agoraMs();
+    if (r <= 0) throw new ErroIntegraCompras("Integra Compras: prazo da consulta esgotado.", null);
+    return r;
+  };
   const caminho = `/integra-compras/v1/chat/${chaveCompra}${tipo === "diligencia" ? "/diligencias" : ""}` +
     `?ordem=${ORDEM}&page=${pagina}`;
 
-  let token = await obterTokenSerpro();
+  let token = await obterTokenSerpro(undefined, undefined, restante());
   let renovouToken = false;
   let res: Response | null = null;
 
@@ -242,21 +274,24 @@ async function consultarPagina(
     res = await fetch(`${GATEWAY_URL}${caminho}`, {
       method: "GET",
       headers: { "Authorization": `Bearer ${token}`, "Accept": "application/json" },
-      signal: AbortSignal.timeout(TIMEOUT_MS),
+      signal: AbortSignal.timeout(Math.min(TIMEOUT_MS, restante())),
     });
 
     if (res.status === 401 && !renovouToken) {
       await res.body?.cancel();
       renovouToken = true;
       invalidarTokenCache();
-      token = await obterTokenSerpro();
+      token = await obterTokenSerpro(undefined, undefined, restante());
       tentativa--; // a renovação de token não conta como tentativa de retry
       continue;
     }
 
     if ((res.status === 429 || res.status === 503) && tentativa < MAX_TENTATIVAS_RETRY) {
+      const espera = esperaMs(res.headers.get("Retry-After"), tentativa);
+      // A espera não cabe no prazo: não dorme à toa, e o 429/503 vira o erro da página (abaixo).
+      if (espera >= limiteMs - agoraMs()) break;
       await res.body?.cancel();
-      await dormir(esperaMs(res.headers.get("Retry-After"), tentativa));
+      await dormir(espera);
       continue;
     }
     break;

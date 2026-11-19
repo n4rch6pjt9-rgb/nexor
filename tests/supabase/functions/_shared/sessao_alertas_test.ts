@@ -151,6 +151,7 @@ Deno.test("CA-7c: sincronizarCompra gera o alerta a partir do chat lido (cron e 
       rpc: base.schema(s).rpc,
       from: (_t: string) => ({
         insert: () => ({ select: () => ({ single: () => Promise.resolve({ data: { id: 1 }, error: null }) }) }),
+        select: () => ({ eq: () => ({ gte: () => Promise.resolve({ data: [], error: null }) }) }), // corrida (sem run anterior)
         update: () => ({ eq: () => Promise.resolve({ data: null, error: null }) }),
       }),
     }),
@@ -287,6 +288,7 @@ Deno.test("CA-7c: falha ao gerar alerta não derruba a consulta: mensagens grava
       rpc: () => Promise.resolve({ data: null, error: new Error("banco fora") }),
       from: (_t: string) => ({
         insert: () => ({ select: () => ({ single: () => Promise.resolve({ data: { id: 1 }, error: null }) }) }),
+        select: () => ({ eq: () => ({ gte: () => Promise.resolve({ data: [], error: null }) }) }), // corrida (sem run anterior)
         update: (patch: Record<string, unknown>) => ({
           eq: () => {
             runs.push(patch);

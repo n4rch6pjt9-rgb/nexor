@@ -10,14 +10,41 @@ import {
 } from "../_shared/http.ts";
 import { ErroTenantAcesso, lerTenantDoUsuario } from "../_shared/tenant.ts";
 import type { ResultadoConsultaIntegra } from "../_shared/serpro.ts";
-import { extrairChaveCompra17Digitos, sincronizarCompra } from "../_shared/sessao_chat.ts";
+import {
+  extrairChaveCompra17Digitos,
+  INTERVALO_MINIMO_CONSULTA_MS,
+  sincronizarCompra,
+} from "../_shared/sessao_chat.ts";
 import { pisoTenantCentavos, unidadeNorm } from "../_shared/agentes/preco.ts";
 import { recomendar, type RecomendacaoLance } from "../_shared/recomendacao.ts";
 import { listarSessoes } from "./sessoes.ts";
 import { listarAlertas, marcarAlertaLido } from "./alertas.ts";
 
-/** Intervalo mínimo entre consultas manuais da mesma compra (cada chamada ao Integra Compras é cobrada). */
-const INTERVALO_MINIMO_USUARIO_MS = 5 * 60_000;
+/**
+ * O intervalo mínimo entre lances e o modo de disputa são do edital (K-8). Enquanto a leitura do edital não existir
+ * (etapa 2 da spec 0039), nenhum item é habilitado para o robô: não se presume valor.
+ */
+const INTERVALO_MINIMO_EDITAL_LIDO = false;
+
+/** Tipos de evento aceitos na trilha de lances (K-9/K-10) e o resultado que cada um grava. */
+const TIPOS_AUDITORIA: Record<string, "sucesso" | "bloqueado_piso" | "recusado_intervalo"> = {
+  LANCE_AUTOMATICO: "sucesso",
+  LANCE_CONFIRMADO: "sucesso",
+  BLOQUEIO_PISO: "bloqueado_piso",
+  RECUSADO_INTERVALO: "recusado_intervalo",
+};
+const RECOMENDACAO_LOTE = 8;
+const CHAT_LIMITE_PADRAO = 500;
+const CHAT_LIMITE_MAX = 2000;
+const MODOS_DISPUTA = new Set(["aberto", "aberto_fechado"]);
+const REGRA_VERSION_MAX = 40;
+
+/** Reais → centavos. undefined = inválido; null = ausente e opcional. */
+function reaisParaCentavos(v: unknown, obrigatorio: boolean): number | null | undefined {
+  if (v === undefined || v === null) return obrigatorio ? undefined : null;
+  if (typeof v !== "number" || !Number.isFinite(v) || v <= 0 || v > 1e10) return undefined;
+  return Math.round(v * 100);
+}
 
 export interface ApiDisputaContext {
   getSupabase?: () => SupabaseClient;
@@ -62,6 +89,7 @@ export async function handleRequest(req: Request, ctx?: ApiDisputaContext): Prom
 
     let user: AuthenticatedUser | null = null;
     let tenantId = 0;
+    let papel: string | null = null;
 
     if (isCron) {
       if (caminho !== "sync-chat") {
@@ -83,6 +111,7 @@ export async function handleRequest(req: Request, ctx?: ApiDisputaContext): Prom
         isLicitagymAdmin(user)
       );
       tenantId = tenantRes.tenant;
+      papel = tenantRes.papel;
     }
 
     // 0. GET /api-disputa/sessoes: compras do pipeline com o estado do chat da sessão (tela "Sessão").
@@ -204,12 +233,13 @@ export async function handleRequest(req: Request, ctx?: ApiDisputaContext): Prom
 
       // CONTRATO RECOMENDACAO v1: enriquece cada item com RecomendacaoLance
       const recomendacoesPorItem = new Map<number, RecomendacaoLance>();
-      for (const item of itens || []) {
+      // Em lotes: `recomendar` vai ao banco por item; em paralelo, mas sem abrir uma conexão por item de licitação grande.
+      const calcularRecomendacao = async (item: NonNullable<typeof itens>[number]) => {
         const produtoId = deParaMap.get(item.id);
-        if (produtoId === undefined) continue;
+        if (produtoId === undefined) return;
 
         const preco = precosPorProduto.get(produtoId);
-        if (!preco) continue;
+        if (!preco) return;
 
         const tabelaCentavos = Math.round(preco.preco_tabela * 100);
         const pisoCentavos = pisoTenantCentavos(tabelaCentavos, preco.desconto_max_pct);
@@ -226,6 +256,10 @@ export async function handleRequest(req: Request, ctx?: ApiDisputaContext): Prom
         );
 
         recomendacoesPorItem.set(item.id, rec);
+      };
+      const todosItens = itens || [];
+      for (let i = 0; i < todosItens.length; i += RECOMENDACAO_LOTE) {
+        await Promise.all(todosItens.slice(i, i + RECOMENDACAO_LOTE).map(calcularRecomendacao));
       }
 
       // Constrói estratégia determinística estrita (sem alucinar pisos inexistentes)
@@ -252,8 +286,10 @@ export async function handleRequest(req: Request, ctx?: ApiDisputaContext): Prom
           valor_unitario_estimado: it.valor_unitario_estimado,
           valor_total_estimado: it.valor_total_estimado,
           piso_centavos: pisoCentavos,
-          habilitado,
-          intervalo_minimo_reais: 10.0,
+          // Sem piso o robô não atua. O intervalo mínimo vem do edital e ainda não é lido (K-8, etapa 2):
+          // fica ausente, nunca presumido, e com ele ausente o item não é habilitado.
+          habilitado: habilitado && INTERVALO_MINIMO_EDITAL_LIDO,
+          intervalo_minimo_reais: null as number | null,
           recomendacao,
         };
       });
@@ -263,8 +299,9 @@ export async function handleRequest(req: Request, ctx?: ApiDisputaContext): Prom
       return jsonResponse({
         licitacao_id: licitacaoId,
         tenant_id: tenantId,
-        modo_disputa: "aberto",
-        intervalo_minimo_reais: 10.0,
+        // Modo de disputa e intervalo mínimo vêm do edital e ainda não são lidos (K-8, etapa 2): ausentes, não presumidos.
+        modo_disputa: null as string | null,
+        intervalo_minimo_reais: null as number | null,
         piso_centavos: primeiroPiso,
         habilitado: itensEstrategia[0]?.habilitado ?? false,
         itens: itensEstrategia,
@@ -273,24 +310,84 @@ export async function handleRequest(req: Request, ctx?: ApiDisputaContext): Prom
 
     // 2. POST /api-disputa/auditoria (enviado pela extensão web)
     if (req.method === "POST" && caminho === "auditoria") {
-      const body = await req.json();
+      // Só admin do tenant (K-10). Nada é presumido: valor, piso, modo e tipo são obrigatórios e validados,
+      // e só os campos abaixo são gravados (o corpo do cliente não entra em `detalhes`).
+      if (!user) return jsonResponse({ erro: "Não autenticado." }, 401);
+      // Allowlist: admin do tenant, ou admin da plataforma sem vínculo (papel nulo). Papel novo não libera sozinho.
+      if (!(papel === "admin" || (papel === null && isLicitagymAdmin(user)))) {
+        return jsonResponse({ erro: "Apenas admin da empresa registra a trilha de lances." }, 403);
+      }
+      let body: Record<string, unknown>;
+      try {
+        const b = await req.json();
+        if (!b || typeof b !== "object" || Array.isArray(b)) throw new Error("corpo");
+        body = b as Record<string, unknown>;
+      } catch {
+        return jsonResponse({ erro: "Corpo JSON inválido." }, 400);
+      }
+
+      const licitacaoId = Number(body.licitacaoId);
+      const itemNumero = Number(body.item_numero);
+      const valor = reaisParaCentavos(body.valor, true);
+      const piso = reaisParaCentavos(body.piso, true);
+      const melhor = reaisParaCentavos(body.melhorOferta, false);
+      const tipo = typeof body.tipo === "string" ? body.tipo : "";
+      const modo = typeof body.modo_disputa === "string" ? body.modo_disputa : "";
+      if (
+        !Number.isSafeInteger(licitacaoId) || licitacaoId <= 0 ||
+        !Number.isSafeInteger(itemNumero) || itemNumero <= 0 ||
+        valor === undefined || valor === null || piso === undefined || piso === null || melhor === undefined ||
+        !Object.hasOwn(TIPOS_AUDITORIA, tipo) || !MODOS_DISPUTA.has(modo)
+      ) {
+        return jsonResponse({
+          erro: "Informe licitacaoId, item_numero, valor e piso (positivos), melhorOferta (opcional), " +
+            "modo_disputa (aberto | aberto_fechado) e tipo (" + Object.keys(TIPOS_AUDITORIA).join(" | ") + ").",
+        }, 400);
+      }
+
+      const { data: pipelineAud, error: erroPipelineAud } = await supabase
+        .from("pipeline_oportunidades")
+        .select("licitacao_id")
+        .eq("tenant_id", tenantId)
+        .eq("licitacao_id", licitacaoId)
+        .maybeSingle();
+      if (erroPipelineAud) throw erroPipelineAud;
+      if (!pipelineAud) {
+        return jsonResponse({ erro: "Oportunidade não encontrada no pipeline do tenant." }, 404);
+      }
+
+      // O item precisa existir na licitação: a trilha de auditoria não aceita item inventado.
+      const { data: itemExiste, error: erroItem } = await supabase
+        .from("licitacao_itens")
+        .select("id")
+        .eq("licitacao_id", licitacaoId)
+        .eq("numero_item", itemNumero)
+        .limit(1)
+        .maybeSingle();
+      if (erroItem) throw erroItem;
+      if (!itemExiste) {
+        return jsonResponse({ erro: "Item não encontrado nesta licitação." }, 404);
+      }
+
+      const recomendacaoId = typeof body.recomendacao_id === "number" && Number.isSafeInteger(body.recomendacao_id)
+        ? body.recomendacao_id
+        : null;
+      const regraVersion = typeof body.regra_version === "string" && body.regra_version.length <= REGRA_VERSION_MAX
+        ? body.regra_version
+        : "bot-guards.v1";
 
       const { data, error } = await supabase.from("disputa_lances_auditoria").insert({
         tenant_id: tenantId,
-        licitacao_id: body.licitacaoId ? parseInt(body.licitacaoId, 10) : null,
-        item_numero: body.item_numero || 1,
-        valor_lance_centavos: body.valor ? Math.round(body.valor * 100) : 0,
-        piso_referencia_centavos: body.piso ? Math.round(body.piso * 100) : 0,
-        melhor_lance_adversario_centavos: body.melhorOferta ? Math.round(body.melhorOferta * 100) : null,
-        modo_disputa: body.modo_disputa || "aberto",
-        regra_aplicada: body.tipo || "lance_automatico",
+        licitacao_id: licitacaoId,
+        item_numero: itemNumero,
+        valor_lance_centavos: valor,
+        piso_referencia_centavos: piso,
+        melhor_lance_adversario_centavos: melhor,
+        modo_disputa: modo,
+        regra_aplicada: tipo, // vocabulário já usado nesta coluna (ex.: BLOQUEIO_PISO); o desfecho vai em `resultado`
         origem: "extensao_operador",
-        resultado: body.tipo === "BLOQUEIO_PISO" ? "bloqueado_piso" : "sucesso",
-        detalhes: {
-          ...body,
-          recomendacao_id: body.recomendacao_id ?? null,
-          regra_version: body.regra_version ?? "bot-guards.v1",
-        },
+        resultado: TIPOS_AUDITORIA[tipo],
+        detalhes: { recomendacao_id: recomendacaoId, regra_version: regraVersion },
       }).select("id").single();
 
       if (error) throw error;
@@ -337,19 +434,30 @@ export async function handleRequest(req: Request, ctx?: ApiDisputaContext): Prom
           chave_compra: null,
           motivo: "sem_chave_compra",
           ultima_consulta: null,
+          truncado: false,
           mensagens: [],
         });
       }
 
-      const { data: mensagens, error } = await supabase
+      // Limite: as mais recentes (o início da sessão é o que menos importa); `truncado` avisa que há mais antigas.
+      const limiteBruto = url.searchParams.get("limite");
+      const limiteParam = limiteBruto === null ? CHAT_LIMITE_PADRAO : Number(limiteBruto);
+      if (!Number.isInteger(limiteParam) || limiteParam < 1) {
+        return jsonResponse({ erro: "limite deve ser um inteiro positivo." }, 400);
+      }
+      const limite = Math.min(limiteParam, CHAT_LIMITE_MAX);
+      const { data: maisRecentes, error } = await supabase
         .from("sessao_mensagens")
         .select(
           "chave_mensagem, tipo, identificador_item, categoria, tipo_remetente, texto, data_hora, data_hora_fonte, fonte, coletado_em",
         )
         .eq("chave_compra", chaveCompra)
-        .order("data_hora", { ascending: true })
-        .order("id", { ascending: true });
+        .order("data_hora", { ascending: false })
+        .order("id", { ascending: false })
+        .limit(limite + 1);
       if (error) throw error;
+      const truncado = (maisRecentes ?? []).length > limite;
+      const mensagens = (maisRecentes ?? []).slice(0, limite).reverse();
 
       const { data: ultimaRun, error: erroRun } = await supabase
         .schema("private")
@@ -369,7 +477,8 @@ export async function handleRequest(req: Request, ctx?: ApiDisputaContext): Prom
         ultima_consulta: ultimaRun
           ? { iniciado_em: ultimaRun.iniciado_em, terminado_em: ultimaRun.terminado_em, com_erro: Boolean(ultimaRun.erro) }
           : null,
-        mensagens: mensagens || [],
+        truncado,
+        mensagens,
       });
     }
 
@@ -465,7 +574,7 @@ export async function handleRequest(req: Request, ctx?: ApiDisputaContext): Prom
           .maybeSingle();
         if (erroRecente) throw erroRecente;
         const ultima = recente?.iniciado_em ? new Date(String(recente.iniciado_em)).getTime() : NaN;
-        if (Number.isFinite(ultima) && Date.now() - ultima < INTERVALO_MINIMO_USUARIO_MS) {
+        if (Number.isFinite(ultima) && Date.now() - ultima < INTERVALO_MINIMO_CONSULTA_MS) {
           return jsonResponse({
             erro: "Esta compra foi consultada há pouco. Aguarde alguns minutos para consultar de novo.",
             ultima_consulta: recente!.iniciado_em,
@@ -478,6 +587,13 @@ export async function handleRequest(req: Request, ctx?: ApiDisputaContext): Prom
         { chaveCompra: chaveOficial, licitacaoId, origem: isCron ? "cron" : "usuario" },
         { consultarChat: ctx?.consultarChat, consultarDiligencias: ctx?.consultarDiligencias },
       );
+
+      if (r.pulada) {
+        // Corrida com outra consulta da mesma compra: a outra segue, esta não chamou a fonte.
+        return jsonResponse({
+          erro: "Esta compra foi consultada há pouco. Aguarde alguns minutos para consultar de novo.",
+        }, 429);
+      }
 
       if (!r.ok) {
         return jsonResponse({

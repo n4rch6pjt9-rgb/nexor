@@ -21,6 +21,12 @@ import {
 } from "./serpro.ts";
 import { gerarAlertas } from "./sessao_alertas.ts";
 
+/** Intervalo mínimo entre duas consultas da mesma compra (cada chamada ao Integra Compras é cobrada). */
+export const INTERVALO_MINIMO_CONSULTA_MS = 5 * 60_000;
+
+/** Folga para diferença de relógio entre a fonte e a Edge Function antes de tratar a data como futura. */
+const TOLERANCIA_FUTURO_MS = 10 * 60_000;
+
 export interface ConsultasIntegra {
   consultarChat?: (chave: string) => Promise<ResultadoConsultaIntegra>;
   consultarDiligencias?: (chave: string) => Promise<ResultadoConsultaIntegra>;
@@ -34,6 +40,11 @@ export interface ResultadoSincronizacao {
   novas_inseridas: number;
   /** Alertas de convocação gravados nesta consulta (K-5b); null = a geração falhou (ver erro). */
   alertas_gerados: number | null;
+  /**
+   * true = outra consulta da mesma compra começou há menos de INTERVALO_MINIMO_CONSULTA_MS (corrida entre cron e
+   * usuário, ou dois cliques): esta nem chamou a fonte e nada foi cobrado.
+   */
+  pulada?: boolean;
   /** {"200": n, "404": n, "sem_resposta": n, ...} */
   chamadas: Record<string, number>;
   /** Mensagem do erro da fonte, ou aviso de leitura incompleta (nunca o corpo da resposta). */
@@ -125,6 +136,42 @@ export async function sincronizarCompra(
     .single();
   if (erroRun) throw erroRun;
 
+  // Corrida: a checagem do chamador (última consulta há mais de 5 min) e este insert não são atômicos. Depois de
+  // registrar o run, quem tem o menor id entre os runs da janela segue; os outros desistem antes de chamar a fonte.
+  const corteMs = (consultas.agora ? consultas.agora() : Date.now()) - INTERVALO_MINIMO_CONSULTA_MS;
+  const { data: anteriores, error: erroAnteriores } = await supabase
+    .schema("private")
+    .from("integra_compras_run")
+    .select("id")
+    .eq("chave_compra", alvo.chaveCompra)
+    .gte("iniciado_em", new Date(corteMs).toISOString());
+  if (erroAnteriores) {
+    // Não deixa o run aberto para sempre (o teto diário o contaria como consulta em curso).
+    await supabase.schema("private").from("integra_compras_run")
+      .update({ terminado_em: new Date().toISOString(), erro: "falha ao conferir consulta concorrente" })
+      .eq("id", run.id);
+    throw erroAnteriores;
+  }
+  if ((anteriores ?? []).some((r: { id: number }) => Number(r.id) < Number(run.id))) {
+    const motivo = "pulada: outra consulta desta compra começou há menos de 5 min";
+    // `erro` fica nulo de propósito: /chat e /sessoes mostram o último run, e uma consulta pulada não é falha.
+    // Ela se reconhece por terminado_em preenchido, chamadas vazias e mensagens_lidas = 0.
+    const { error: erroPulo } = await supabase.schema("private").from("integra_compras_run")
+      .update({ terminado_em: new Date().toISOString(), chamadas: {} })
+      .eq("id", run.id);
+    if (erroPulo) throw erroPulo;
+    return {
+      ok: true,
+      pulada: true,
+      total_lidas: 0,
+      novas_inseridas: 0,
+      alertas_gerados: 0,
+      chamadas: {},
+      erro: motivo,
+      status_erro: null,
+    };
+  }
+
   const chamadas: Record<string, number> = {};
   const contar = (status: number | null) => {
     const k = status === null ? "sem_resposta" : String(status);
@@ -152,6 +199,13 @@ export async function sincronizarCompra(
       erroFonte = e;
       break; // 403/502: registra e para a compra (K-3)
     }
+  }
+
+  // dataHora vem sem fuso e é tratado como Brasília (serpro.ts). Mensagem "do futuro" indica fuso errado na fonte: o
+  // prazo do alerta e a janela de 24 h ficariam deslocados em silêncio. Nada é corrigido; o run guarda o aviso.
+  const agoraRef = consultas.agora ? consultas.agora() : Date.now();
+  if (!aviso && lidas.some((m) => Date.parse(m.dataHora) > agoraRef + TOLERANCIA_FUTURO_MS)) {
+    aviso = "Integra Compras: mensagem com data/hora no futuro; conferir o fuso do dataHora (tratado como Brasília).";
   }
 
   let novas = 0;

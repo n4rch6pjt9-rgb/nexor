@@ -34,9 +34,11 @@ const MAX_CHAMADAS_DIA_TETO = 2000;
 const CHAMADAS_POR_COMPRA = 2;
 const INTERVALO_MINIMO_MS = 55 * 60_000;
 const JANELA_ULTIMA_CONSULTA_MS = 24 * 3600_000;
-/** Para de abrir compra nova depois disso: o cron espera 150 s e cada compra pode levar ~40 s no pior caso. */
+/** Para de abrir compra nova depois disso: o cron espera 150 s e cada compra leva no máximo ~50 s (2 consultas de até PRAZO_CONSULTA_MS = 25 s, em `_shared/serpro.ts`). */
 const ORCAMENTO_TEMPO_MS = 90_000;
 const FUSO_BRASILIA_MS = 3 * 3600_000;
+const PAGINA_RUNS = 1000;
+const MAX_RUNS_LIDOS = 50_000;
 
 export interface Alvo {
   licitacaoId: number;
@@ -154,12 +156,27 @@ export async function handleRequest(req: Request, ctx: Contexto = {}): Promise<R
     const inicioDiaMs = Date.parse(inicioDoDiaBrasilia(agora));
     const corteRecenteMs = agora.getTime() - INTERVALO_MINIMO_MS;
     const desdeMs = Math.min(inicioDiaMs, agora.getTime() - JANELA_ULTIMA_CONSULTA_MS);
-    const { data: runs, error: eRuns } = await supabase
-      .schema("private")
-      .from("integra_compras_run")
-      .select("chave_compra, iniciado_em, terminado_em, chamadas")
-      .gte("iniciado_em", new Date(desdeMs).toISOString());
-    if (eRuns) throw eRuns;
+    // PostgREST devolve no máximo 1000 linhas por pedido: lê em páginas para o teto diário e o rodízio nunca
+    // contarem a menos em silêncio.
+    const runs: Array<{ chave_compra: unknown; iniciado_em: unknown; terminado_em?: unknown; chamadas?: unknown }> = [];
+    let leituraCompleta = false;
+    for (let de = 0; de < MAX_RUNS_LIDOS; de += PAGINA_RUNS) {
+      const { data: pagina, error: eRuns } = await supabase
+        .schema("private")
+        .from("integra_compras_run")
+        .select("chave_compra, iniciado_em, terminado_em, chamadas")
+        .gte("iniciado_em", new Date(desdeMs).toISOString())
+        .order("id", { ascending: true })
+        .range(de, de + PAGINA_RUNS - 1);
+      if (eRuns) throw eRuns;
+      runs.push(...(pagina ?? []));
+      if ((pagina ?? []).length < PAGINA_RUNS) {
+        leituraCompleta = true;
+        break;
+      }
+    }
+    // Falha fechada: contar a menos o teto diário gastaria dinheiro à toa; melhor a rodada não rodar.
+    if (!leituraCompleta) throw new Error("integra_compras_run: mais de " + MAX_RUNS_LIDOS + " linhas na janela");
 
     const ultimaConsulta = new Map<string, number>();
     let chamadasHoje = 0;

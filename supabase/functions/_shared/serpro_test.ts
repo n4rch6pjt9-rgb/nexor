@@ -4,9 +4,11 @@ import {
   consultarDiligenciasSerpro,
   converterDataHoraFonte,
   definirDormirParaTeste,
+  definirRelogioParaTeste,
   ErroIntegraCompras,
   invalidarTokenCache,
   obterTokenSerpro,
+  PRAZO_CONSULTA_MS,
 } from "./serpro.ts";
 
 // Exemplo oficial da documentação do Integra Compras (compra de demonstração 99998803000012026).
@@ -25,6 +27,7 @@ function comFetch(rota: Rota) {
   Deno.env.set("SERPRO_CONSUMER_KEY", "chave-teste");
   Deno.env.set("SERPRO_CONSUMER_SECRET", "segredo-teste");
   definirDormirParaTeste(() => Promise.resolve());
+  definirRelogioParaTeste(() => Date.now());
   globalThis.fetch = ((input: RequestInfo | URL, init?: RequestInit) => {
     const url = String(input);
     if (url.endsWith("/token")) {
@@ -327,6 +330,91 @@ Deno.test("Paginação: falha na página 1 leva as páginas já lidas no erro (c
     assertEquals(e.statusPaginasAnteriores, [206]);
     assertEquals(e.mensagensAnteriores.length, 3);
   } finally {
+    f.restaurar();
+  }
+});
+
+Deno.test("Prazo: Retry-After que não cabe no prazo da consulta não dorme e vira erro 429", async () => {
+  let agora = 1_000_000;
+  const esperas: number[] = [];
+  const f = comFetch(() => new Response("", { status: 429, headers: { "Retry-After": "30" } }));
+  definirRelogioParaTeste(() => agora);
+  definirDormirParaTeste((ms) => {
+    esperas.push(ms);
+    agora += ms;
+    return Promise.resolve();
+  });
+  try {
+    const e = await assertRejects(() => consultarChatSerpro(CHAVE), ErroIntegraCompras);
+    assertEquals(e.status, 429);
+    assertEquals(esperas, []); // 30 s > 25 s de prazo: nem tenta esperar
+    assertEquals(f.chamadas.api.length, 1);
+  } finally {
+    f.restaurar();
+  }
+});
+
+Deno.test("Prazo: esperas curtas somam e o prazo corta as tentativas, sem passar de PRAZO_CONSULTA_MS", async () => {
+  let agora = 1_000_000;
+  const inicio = agora;
+  const f = comFetch(() => new Response("", { status: 503, headers: { "Retry-After": "10" } }));
+  definirRelogioParaTeste(() => agora);
+  definirDormirParaTeste((ms) => {
+    agora += ms;
+    return Promise.resolve();
+  });
+  try {
+    const e = await assertRejects(() => consultarChatSerpro(CHAVE), ErroIntegraCompras);
+    assertEquals(e.status, 503);
+    // 1ª tentativa, espera 10 s, 2ª tentativa, espera 10 s, 3ª tentativa (a última não espera): 20 s ≤ 25 s.
+    assertEquals(f.chamadas.api.length, 3);
+    assertEquals(agora - inicio <= PRAZO_CONSULTA_MS, true);
+  } finally {
+    f.restaurar();
+  }
+});
+
+Deno.test("Prazo: esgotado entre páginas guarda o que leu, avisa e não abre outra chamada", async () => {
+  let agora = 1_000_000;
+  const f = comFetch((url) => {
+    const page = Number(new URL(url).searchParams.get("page"));
+    agora += 20_000; // cada página "leva" 20 s
+    return new Response(paginaExemplo(page), { status: 206, headers: { "Pages-Count": "5" } });
+  });
+  definirRelogioParaTeste(() => agora);
+  try {
+    const r = await consultarChatSerpro(CHAVE);
+    // pág. 0 (t=20 s) e pág. 1 (t=40 s ≥ 25 s): para antes da pág. 2.
+    assertEquals(f.chamadas.api.length, 2);
+    assertEquals(r.mensagens.length, 6);
+    assertEquals(r.statusPaginas, [206, 206]);
+    assertEquals(r.aviso?.includes("prazo"), true);
+  } finally {
+    f.restaurar();
+  }
+});
+
+Deno.test("Prazo: o timeout de cada chamada não passa do que resta do prazo", async () => {
+  let agora = 1_000_000;
+  const f = comFetch((url) => {
+    const page = Number(new URL(url).searchParams.get("page"));
+    agora += 15_000;
+    return new Response(paginaExemplo(page), { status: 206, headers: { "Pages-Count": "3" } });
+  });
+  definirRelogioParaTeste(() => agora);
+  const timeouts: number[] = [];
+  const original = AbortSignal.timeout;
+  AbortSignal.timeout = ((ms: number) => {
+    timeouts.push(ms);
+    return original.call(AbortSignal, ms);
+  }) as typeof AbortSignal.timeout;
+  try {
+    await consultarChatSerpro(CHAVE);
+    // 1ª página: 20 s (teto da chamada). A 2ª começa com 25 − 15 = 10 s de prazo: timeout de 10 s, não de 20 s.
+    assertEquals(timeouts.includes(10_000), true);
+    assertEquals(timeouts.filter((t) => t > 20_000).length, 0);
+  } finally {
+    AbortSignal.timeout = original;
     f.restaurar();
   }
 });

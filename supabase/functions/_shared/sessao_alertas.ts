@@ -23,7 +23,11 @@ export interface AlertaDetectado {
   tipo: TipoAlerta;
   identificador_item: string | null;
   fornecedor_razao_social: string | null;
-  /** 14 posições sem máscara (numérico ou alfanumérico, Receita desde jul/2026); null se não for CNPJ válido. */
+  /**
+   * 14 posições sem máscara (numérico ou alfanumérico, Receita desde jul/2026); null se não tiver esse formato. Os
+   * dígitos verificadores NÃO são conferidos de propósito: o texto vem do sistema oficial, e recusar um CNPJ por
+   * erro nosso no cálculo apagaria o aviso "a sua empresa foi convocada" (da_empresa).
+   */
   fornecedor_cnpj: string | null;
   /** ISO 8601 em UTC; null quando o texto não traz prazo legível. */
   prazo: string | null;
@@ -67,7 +71,7 @@ function prazoBrasilia(m: RegExpMatchArray | null): string | null {
   return new Date(Date.UTC(a, mes - 1, d, h + BRASILIA_UTC_OFFSET_H, mi, s)).toISOString();
 }
 
-/** CNPJ sem máscara: 12 posições alfanuméricas + 2 dígitos verificadores (cobre o numérico de sempre). */
+/** CNPJ sem máscara: 12 posições alfanuméricas + 2 dígitos (formato; sem conferir o dígito verificador). */
 export function normalizarCnpj(cnpj: string | null | undefined): string | null {
   const s = (cnpj ?? "").replace(/[\s./-]/g, "").toUpperCase();
   return /^[0-9A-Z]{12}[0-9]{2}$/.test(s) ? s : null;
