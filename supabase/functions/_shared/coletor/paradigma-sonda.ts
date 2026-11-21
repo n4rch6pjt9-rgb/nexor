@@ -11,13 +11,14 @@
 //  - 429 e 5xx: no máximo UMA nova tentativa (429 respeita Retry-After, com teto);
 //  - intervalo mínimo de 1000 ms entre chamadas (`delay_ms` da fonte, nunca abaixo disso);
 //  - orçamento de tempo por fonte; ao acabar, devolve o que já mediu.
+// A camada HTTP (ClientePortal) é compartilhada com a descoberta e a carga (paradigma-coleta.ts, fase 3).
 
 export const UA = "LicitaGym-Coletor/1.1 (pesquisa de licitações públicas)";
 export const DELAY_MINIMO_MS = 1000;
 export const MODULO_PADRAO = 59;
 export const TAMANHO_AMOSTRA_LISTAGEM = 20;
 
-// Marcadores de "vazio" do Paradigma (portal.py: _NULO e _INT_NULO).
+/** Marcadores de vazio do Paradigma (mesma regra de portal.limpar). */
 const NULO_TEXTO = "\u0013\u0012\u0012\u0013";
 const NULO_INT = -2147483648;
 
@@ -33,12 +34,7 @@ export type FonteSonda = {
 
 export type Fetcher = (url: string, init?: RequestInit) => Promise<Response>;
 
-export type Chamada = {
-  metodo: string;
-  status: number | null;
-  erro?: string;
-  ms: number;
-};
+export type Chamada = { metodo: string; status: number | null; erro?: string; ms: number };
 
 export type RelatorioFonte = {
   fonte: string;
@@ -46,12 +42,7 @@ export type RelatorioFonte = {
   motivo_nao_executada?: string;
   bloqueada: boolean;
   chamadas: Chamada[];
-  listagem?: {
-    linhas: number;
-    chaves: string[];
-    assinatura: string;
-    amostra_objeto: string[];
-  };
+  listagem?: { linhas: number; chaves: string[]; assinatura: string; amostra_objeto: string[] };
   detalhe?: { processos: number; chaves: string[]; assinatura: string; modulos: number[] };
   itens?: {
     processos_com_itens: number;
@@ -63,7 +54,6 @@ export type RelatorioFonte = {
   avisos: string[];
 };
 
-/** Remove os marcadores de vazio do Paradigma (mesma regra de portal.limpar). */
 export function limpar(v: unknown): unknown {
   if (v === NULO_TEXTO || v === NULO_INT) return null;
   if (Array.isArray(v)) return v.map(limpar);
@@ -73,13 +63,11 @@ export function limpar(v: unknown): unknown {
   return v;
 }
 
-/** Chaves de primeiro nível, ordenadas. Não devolve valor. */
 export function chavesDe(obj: unknown): string[] {
   if (!obj || typeof obj !== "object" || Array.isArray(obj)) return [];
   return Object.keys(obj as Record<string, unknown>).sort();
 }
 
-/** União das chaves de uma lista de objetos. */
 export function uniaoDeChaves(lista: unknown[]): string[] {
   const s = new Set<string>();
   for (const x of lista) for (const k of chavesDe(x)) s.add(k);
@@ -92,7 +80,6 @@ export async function assinaturaDe(chaves: string[]): Promise<string> {
   return [...new Uint8Array(h)].slice(0, 6).map((b) => b.toString(16).padStart(2, "0")).join("");
 }
 
-/** Diferença entre dois conjuntos de chaves (referência x outra). */
 export function compararChaves(ref: string[], outra: string[]) {
   const r = new Set(ref);
   const o = new Set(outra);
@@ -103,7 +90,6 @@ export function compararChaves(ref: string[], outra: string[]) {
   };
 }
 
-/** Chaves que parecem de catálogo (classe, grupo, produto): onde procurar a estrutura Grupo → Classe → Produto. */
 export function chavesDeCatalogo(chaves: string[]): string[] {
   return chaves.filter((k) => /classe|grupo|produto|catalog|familia|categoria/i.test(k));
 }
@@ -130,7 +116,7 @@ export const METODOS_LISTAGEM = ["PesquisarProcessos", "PesquisarProcessosPorSit
 export type MetodoListagem = (typeof METODOS_LISTAGEM)[number];
 export type ParametrosListagem = { metodo?: MetodoListagem; tipoMural?: number; ordenarPor?: string; tamanho?: number };
 
-/** Valida o que vem do corpo da requisição ou do perfil: método da lista, inteiros curtos e identificador em maiúsculas. */
+/** Valida os parâmetros de listagem (perfil ou corpo da chamada). null = inválido. */
 export function parametrosListagemValidos(v: unknown): ParametrosListagem | null {
   if (v === undefined) return {};
   if (!v || typeof v !== "object" || Array.isArray(v)) return null;
@@ -183,12 +169,7 @@ export function corpoListagem(texto = "", de = 1, ate = TAMANHO_AMOSTRA_LISTAGEM
 
 export function corpoDetalhe(id: number, modulo: number) {
   return {
-    dtoProcesso: {
-      nCdProcesso: id,
-      nCdModulo: modulo,
-      tmpTipoMuralProcesso: 0,
-      dtoIdioma: { nCdIdioma: 1 },
-    },
+    dtoProcesso: { nCdProcesso: id, nCdModulo: modulo, tmpTipoMuralProcesso: 0, dtoIdioma: { nCdIdioma: 1 } },
   };
 }
 
@@ -211,7 +192,7 @@ export function corpoItens(d: Record<string, unknown>) {
   };
 }
 
-function esperar(ms: number) {
+function esperar(ms: number): Promise<void> {
   return new Promise((r) => setTimeout(r, ms));
 }
 
@@ -223,67 +204,78 @@ export type OpcoesSonda = {
   /** Orçamento de tempo da fonte, em ms. */
   orcamentoMs?: number;
   timeoutMs?: number;
-  /** Chamado a cada resposta HTTP (para `fonte_externa_registrar_resultado`). Falha dele não derruba a sonda. */
+  /** Chamado a cada resposta HTTP (para `fonte_externa_registrar_resultado`). Falha dele não derruba a chamada. */
   registrar?: (slug: string, status: number) => Promise<void>;
-  /** Método e parâmetros da listagem (do perfil da fonte, ou sobrepostos no corpo da chamada). */
   listagem?: ParametrosListagem;
   agora?: () => number;
 };
 
-class Bloqueio extends Error {}
+export class Bloqueio extends Error {}
 
-export async function sondarFonte(f: FonteSonda, op: OpcoesSonda = {}): Promise<RelatorioFonte> {
-  const fetcher = op.fetcher ?? ((u, i) => fetch(u, i));
-  const dormir = op.dormir ?? esperar;
-  const agora = op.agora ?? Date.now;
-  const amostra = Math.min(Math.max(op.amostra ?? 2, 1), 3);
-  const orcamentoMs = op.orcamentoMs ?? 40_000;
-  const timeoutMs = op.timeoutMs ?? 15_000;
-  const atraso = Math.max(f.delay_ms ?? DELAY_MINIMO_MS, DELAY_MINIMO_MS);
+/**
+ * Camada HTTP de um portal Paradigma, com as regras de coleta (ver o topo do arquivo). Compartilhada pela sonda e
+ * pela descoberta: o bloqueio (401/403) para a fonte na hora, 429/5xx tem uma nova tentativa, o intervalo mínimo vale.
+ */
+export class ClientePortal {
+  readonly chamadas: Chamada[] = [];
+  readonly avisos: string[] = [];
+  bloqueada = false;
+  private primeira = true;
+  private readonly inicio: number;
+  private readonly fetcher: Fetcher;
+  private readonly dormir: (ms: number) => Promise<void>;
+  private readonly agora: () => number;
+  private readonly orcamentoMs: number;
+  private readonly timeoutMs: number;
+  private readonly atraso: number;
 
-  const rel: RelatorioFonte = { fonte: f.slug, executada: false, bloqueada: false, chamadas: [], avisos: [] };
-  const regra = podeSondar(f);
-  if (!regra.ok) {
-    rel.motivo_nao_executada = regra.motivo;
-    return rel;
+  constructor(private readonly f: FonteSonda, private readonly op: OpcoesSonda = {}) {
+    this.fetcher = op.fetcher ?? ((u, i) => fetch(u, i));
+    this.dormir = op.dormir ?? esperar;
+    this.agora = op.agora ?? Date.now;
+    this.orcamentoMs = op.orcamentoMs ?? 40_000;
+    this.timeoutMs = op.timeoutMs ?? 15_000;
+    this.atraso = Math.max(f.delay_ms ?? DELAY_MINIMO_MS, DELAY_MINIMO_MS);
+    this.inicio = this.agora();
   }
-  rel.executada = true;
-  const inicio = agora();
-  const noOrcamento = () => agora() - inicio < orcamentoMs;
-  let primeira = true;
 
-  async function chamar(metodo: string, url: string, init: RequestInit): Promise<Response | null> {
+  noOrcamento(): boolean {
+    return this.agora() - this.inicio < this.orcamentoMs;
+  }
+
+  async chamar(metodo: string, url: string, init: RequestInit): Promise<Response | null> {
+    const { f, op } = this;
     for (let tentativa = 0; tentativa < 2; tentativa++) {
-      if (!primeira) await dormir(atraso);
-      primeira = false;
-      const t0 = agora();
+      if (!this.primeira) await this.dormir(this.atraso);
+      this.primeira = false;
+      const t0 = this.agora();
       let resp: Response;
       try {
-        resp = await fetcher(url, {
+        resp = await this.fetcher(url, {
           ...init,
           headers: { "User-Agent": UA, Accept: "application/json, text/plain, */*", ...(init.headers ?? {}) },
-          signal: AbortSignal.timeout(timeoutMs),
+          signal: AbortSignal.timeout(this.timeoutMs),
           redirect: "manual",
         });
       } catch (e) {
-        rel.chamadas.push({ metodo, status: null, erro: e instanceof Error ? e.name : "erro", ms: agora() - t0 });
-        if (tentativa === 0 && noOrcamento()) continue;
+        this.chamadas.push({ metodo, status: null, erro: e instanceof Error ? e.name : "erro", ms: this.agora() - t0 });
+        if (tentativa === 0 && this.noOrcamento()) continue;
         return null;
       }
-      rel.chamadas.push({ metodo, status: resp.status, ms: agora() - t0 });
+      this.chamadas.push({ metodo, status: resp.status, ms: this.agora() - t0 });
       try {
         await op.registrar?.(f.slug, resp.status);
       } catch {
-        rel.avisos.push("falha ao registrar o resultado em fonte_externa_registrar_resultado");
+        this.avisos.push("falha ao registrar o resultado em fonte_externa_registrar_resultado");
       }
       if (resp.status === 401 || resp.status === 403) {
-        rel.bloqueada = true;
+        this.bloqueada = true;
         throw new Bloqueio(`${f.slug}: o host recusou o acesso (HTTP ${resp.status}); bloqueio não se contorna.`);
       }
-      if ((resp.status === 429 || resp.status >= 500) && tentativa === 0 && noOrcamento()) {
+      if ((resp.status === 429 || resp.status >= 500) && tentativa === 0 && this.noOrcamento()) {
         if (resp.status === 429) {
           const ra = Number(resp.headers.get("retry-after"));
-          await dormir(Number.isFinite(ra) && ra > 0 ? Math.min(ra, 10) * 1000 : 2000);
+          await this.dormir(Number.isFinite(ra) && ra > 0 ? Math.min(ra, 10) * 1000 : 2000);
         }
         continue;
       }
@@ -292,35 +284,56 @@ export async function sondarFonte(f: FonteSonda, op: OpcoesSonda = {}): Promise<
     return null;
   }
 
-  async function ws(metodo: string, corpo: unknown): Promise<unknown | null> {
-    const r = await chamar(metodo, urlMetodo(f.base_url, metodo), {
+  /** Abre a sessão do portal. Devolve o status, ou null se o host não respondeu. */
+  async mural(): Promise<number | null> {
+    const r = await this.chamar("Mural.aspx", urlMural(this.f.base_url), { method: "GET" });
+    if (!r) return null;
+    await r.arrayBuffer().catch(() => undefined);
+    return r.status;
+  }
+
+  async ws(metodo: string, corpo: unknown): Promise<unknown | null> {
+    const r = await this.chamar(metodo, urlMetodo(this.f.base_url, metodo), {
       method: "POST",
       headers: { "Content-Type": "application/json; charset=utf-8" },
       body: JSON.stringify(corpo),
     });
     if (!r || r.status !== 200) {
-      rel.avisos.push(`${metodo}: HTTP ${r?.status ?? "sem resposta"}`);
+      this.avisos.push(`${metodo}: HTTP ${r?.status ?? "sem resposta"}`);
       return null;
     }
     try {
       const j = await r.json();
       return limpar((j as { d?: unknown }).d);
     } catch {
-      rel.avisos.push(`${metodo}: resposta não é JSON`);
+      this.avisos.push(`${metodo}: resposta não é JSON`);
       return null;
     }
   }
+}
+
+export async function sondarFonte(f: FonteSonda, op: OpcoesSonda = {}): Promise<RelatorioFonte> {
+  const amostra = Math.min(Math.max(op.amostra ?? 2, 1), 3);
+  const c = new ClientePortal(f, op);
+  const rel: RelatorioFonte = { fonte: f.slug, executada: false, bloqueada: false, chamadas: c.chamadas, avisos: c.avisos };
+  const regra = podeSondar(f);
+  if (!regra.ok) {
+    rel.motivo_nao_executada = regra.motivo;
+    return rel;
+  }
+  rel.executada = true;
+  const noOrcamento = () => c.noOrcamento();
+  const ws = (m: string, corpo: unknown) => c.ws(m, corpo);
 
   try {
     // 1. Mural: abre a sessão do portal e mede o status do host.
-    const mural = await chamar("Mural.aspx", urlMural(f.base_url), { method: "GET" });
-    if (!mural || mural.status >= 400) {
-      rel.avisos.push(`Mural.aspx: HTTP ${mural?.status ?? "sem resposta"}`);
+    const mural = await c.mural();
+    if (mural === null || mural >= 400) {
+      rel.avisos.push(`Mural.aspx: HTTP ${mural ?? "sem resposta"}`);
       return rel;
     }
-    await mural.arrayBuffer().catch(() => undefined);
 
-    // 2. Listagem, pelo método e parâmetros do perfil.
+    // 2. Listagem.
     if (!noOrcamento()) {
       rel.avisos.push("orçamento de tempo esgotado antes da listagem");
       return rel;
@@ -390,6 +403,7 @@ export async function sondarFonte(f: FonteSonda, op: OpcoesSonda = {}): Promise<
     return rel;
   } catch (e) {
     if (e instanceof Bloqueio) {
+      rel.bloqueada = true;
       rel.avisos.push(e.message);
       return rel;
     }
@@ -397,7 +411,7 @@ export async function sondarFonte(f: FonteSonda, op: OpcoesSonda = {}): Promise<
   }
 }
 
-/** Compara cada fonte com a primeira que respondeu (referência): o que muda de portal para portal. */
+/** Compara as chaves de cada portal com a primeira fonte que respondeu (a referência). */
 export function compararFontes(relatorios: RelatorioFonte[]) {
   const ref = relatorios.find((r) => r.listagem);
   if (!ref) return { referencia: null, diferencas: [] as unknown[] };
