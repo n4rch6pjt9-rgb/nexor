@@ -9,15 +9,27 @@ import {
 } from "../_shared/http.ts";
 import { SYNCS, syncPorSlug } from "./catalogo.ts";
 import { responderEstadoPca } from "./estado-pca.ts";
+import { createServiceClient } from "../_shared/pncp/supabase-admin.ts";
 
 /**
  * api-syncs: catálogo dos syncs e disparo manual.
  *   POST {action:"listar"} -> { syncs: [...] }
- *   POST {action:"rodar", sync:"sync-portal-compras"} -> encaminha o corpo do catálogo para a função.
- *   POST {action:"rodar", sync:"coletor-pncp"} -> workflow_dispatch no GitHub (GITHUB_ACTIONS_TOKEN, GITHUB_ACTIONS_REPO).
+ *   POST {action:"rodar", sync:"sync-portal-compras"} -> encaminha o corpo do catálogo para a Edge Function.
+ *   POST {action:"rodar", sync:"coletor-pncp"} -> chama a função SQL do catálogo (campo `rpc`), tudo dentro do Supabase.
+ * O "último cron" dos itens com `cron_jobs` vem do pg_cron (public.sync_status_cron), sem GitHub Actions.
  * Acesso: cron (SYNC_CRON_SECRET) ou app_metadata.licitagym_role = 'admin'.
- * Os segredos (cron e token do GitHub) saem só no servidor, nos headers das chamadas. Não voltam na resposta.
  */
+
+export interface StatusJobCron {
+  jobname: string;
+  schedule: string | null;
+  ativo: boolean | null;
+  run_id: number | null;
+  status: string | null;
+  inicio: string | null;
+  fim: string | null;
+  mensagem: string | null;
+}
 
 export interface ApiSyncsContext {
   getUser?: (req: Request) => Promise<AuthenticatedUser | null>;
@@ -25,27 +37,13 @@ export interface ApiSyncsContext {
   fetchFn?: typeof fetch;
   segredo?: () => string | null;
   baseUrl?: () => string | null;
-  /** Token do GitHub com permissão Actions: write no repositório (fine-grained). */
-  githubToken?: () => string | null;
-  /** "dono/repo" do workflow: GITHUB_ACTIONS_REPO, padrão nexor-licitacoes/nexor; null = variável inválida. */
-  githubRepo?: () => string | null;
-  /** Relógio (testes): a janela de 30 dias do re-run do GitHub depende de "agora". */
+  /** Relógio (testes). */
   agora?: () => Date;
   lerEstadoPca?: (ano: number) => Promise<unknown>;
-}
-
-const REPO_PADRAO = "nexor-licitacoes/nexor";
-
-function tokenGithub(): string | null {
-  const t = Deno.env.get("GITHUB_ACTIONS_TOKEN")?.trim() ?? "";
-  return t.length > 0 ? t : null;
-}
-
-/** "dono/repo" válido, o padrão quando a variável está ausente, ou null quando ela existe e está errada (não cai no padrão em silêncio). */
-function repoGithub(): string | null {
-  const r = Deno.env.get("GITHUB_ACTIONS_REPO")?.trim() ?? "";
-  if (r.length === 0) return REPO_PADRAO;
-  return /^[\w.-]+\/[\w.-]+$/.test(r) ? r : null;
+  /** Status dos jobs do pg_cron (testes); padrão: RPC public.sync_status_cron com a service role. */
+  lerStatusCron?: (jobs: string[]) => Promise<StatusJobCron[]>;
+  /** Chamada de função SQL (testes); padrão: RPC com a service role. */
+  chamarRpc?: (nome: string, args: Record<string, unknown>) => Promise<unknown>;
 }
 
 function segredoCron(): string | null {
@@ -69,15 +67,7 @@ async function corpoResposta(res: Response): Promise<unknown> {
   }
 }
 
-// ---- spec 0025: último cron agendado e refazer as etapas que falharam ----
-
-/** Conclusões do run agendado que liberam o `refazer` (decisão do Marcelo, 16/10: `cancelled` também). */
-const CONCLUSOES_REFAZER = new Set(["failure", "cancelled", "timed_out"]);
-/** Limites do GitHub para re-run: "up to 30 days after its initial run" e "a maximum of 50 times" (tentativa 1 = run original). */
-const JANELA_RERUN_MS = 30 * 24 * 60 * 60 * 1000;
-const MAX_TENTATIVA = 51;
-/** Status de run ainda não terminado na API do GitHub; cada um é consultado (o filtro aceita um valor por vez). */
-const STATUS_ATIVOS = ["in_progress", "queued", "requested", "waiting", "pending"] as const;
+// ---- último cron: lido do pg_cron (mesmo formato que a tela já exibe) ----
 
 interface EtapaCron {
   nome: string;
@@ -87,122 +77,83 @@ interface EtapaCron {
   completed_at: string | null;
 }
 
-interface UltimoCron {
-  run_id: number;
-  status: string | null;
-  conclusion: string | null;
-  run_attempt: number | null;
-  created_at: string | null;
-  html_url: string | null;
-  etapas: EtapaCron[];
-}
-
 interface EstadoCron {
-  ultimo_cron: UltimoCron | null;
+  ultimo_cron: {
+    run_id: number;
+    status: string | null;
+    conclusion: string | null;
+    run_attempt: number | null;
+    created_at: string | null;
+    html_url: string | null;
+    etapas: EtapaCron[];
+  } | null;
   pode_refazer: boolean;
   motivo_refazer: string | null;
   erro_ultimo_cron: string | null;
 }
 
-class FalhaGithub extends Error {}
-
-function cabecalhosGithub(token: string): Record<string, string> {
-  return {
-    Authorization: `Bearer ${token}`,
-    Accept: "application/vnd.github+json",
-    "X-GitHub-Api-Version": "2022-11-28",
-  };
+async function statusPadrao(jobs: string[]): Promise<StatusJobCron[]> {
+  const { data, error } = await createServiceClient().rpc("sync_status_cron", { p_jobs: jobs });
+  if (error) throw new Error(error.message);
+  return (data ?? []) as StatusJobCron[];
 }
 
-async function lerGithub(fetchFn: typeof fetch, token: string, url: string, signal: AbortSignal): Promise<Record<string, unknown>> {
-  let res: Response;
+async function rpcPadrao(nome: string, args: Record<string, unknown>): Promise<unknown> {
+  const { data, error } = await createServiceClient().rpc(nome, args);
+  if (error) throw new Error(error.message);
+  return data;
+}
+
+function conclusaoDe(status: string | null): string | null {
+  if (status === "succeeded") return "success";
+  if (status === "failed") return "failure";
+  return null;
+}
+
+async function estadoCron(jobs: string[], ler: (j: string[]) => Promise<StatusJobCron[]>): Promise<EstadoCron> {
+  const semRefazer = { pode_refazer: false, motivo_refazer: null };
+  let linhas: StatusJobCron[];
   try {
-    res = await fetchFn(url, { headers: cabecalhosGithub(token), signal });
+    linhas = await ler(jobs);
   } catch (e) {
-    throw new FalhaGithub(`GitHub não respondeu (${e instanceof Error ? e.name : "erro"}).`);
-  }
-  if (!res.ok) throw new FalhaGithub(`GitHub respondeu ${res.status} ao ler os runs do workflow.`);
-  const corpo = await res.json().catch(() => null);
-  if (typeof corpo !== "object" || corpo === null) throw new FalhaGithub("GitHub devolveu um corpo inválido.");
-  return corpo as Record<string, unknown>;
-}
-
-/** Lista de runs do GitHub. Sem o array `workflow_runs` é erro, nunca "nenhum run" (isso abriria o refazer). */
-function runsDe(corpo: Record<string, unknown>): Record<string, unknown>[] {
-  if (!Array.isArray(corpo.workflow_runs)) throw new FalhaGithub("GitHub devolveu a lista de runs fora do formato.");
-  return corpo.workflow_runs as Record<string, unknown>[];
-}
-
-function texto(v: unknown): string | null {
-  return typeof v === "string" ? v : null;
-}
-
-/** Lê o último run agendado, as etapas dele e se há run do workflow na fila. Falha de leitura vira erro, nunca "cron ok". */
-async function estadoCron(
-  item: { github_workflow?: string },
-  token: string | null,
-  repo: string | null,
-  fetchFn: typeof fetch,
-  agora: Date,
-): Promise<EstadoCron> {
-  const erro = (m: string): EstadoCron => ({ ultimo_cron: null, pode_refazer: false, motivo_refazer: null, erro_ultimo_cron: m });
-  if (!token) return erro("Leitura do cron não configurada (GITHUB_ACTIONS_TOKEN).");
-  if (!repo) return erro("GITHUB_ACTIONS_REPO inválido (use dono/repo).");
-  const base = `https://api.github.com/repos/${repo}/actions`;
-  // Um prazo só para todas as leituras: com o GitHub lento a tela não espera mais que isso.
-  const signal = AbortSignal.timeout(12_000);
-  const runs = `${base}/workflows/${item.github_workflow}/runs`;
-  try {
-    // Em paralelo: o último agendado, os 30 runs mais recentes e uma consulta por status ativo. Esta última pega um
-    // run antigo refeito no GitHub que não está entre os 30 recentes.
-    const [agendados, recentes, ...ativos] = await Promise.all([
-      lerGithub(fetchFn, token, `${runs}?event=schedule&per_page=1`, signal),
-      lerGithub(fetchFn, token, `${runs}?per_page=30`, signal),
-      ...STATUS_ATIVOS.map((st) => lerGithub(fetchFn, token, `${runs}?status=${st}&per_page=1`, signal)),
-    ]);
-    const run = runsDe(agendados)[0];
-    const ativo = runsDe(recentes).some((r) => r.status !== "completed") ||
-      ativos.some((corpo) => runsDe(corpo).length > 0);
-    if (!run) {
-      return { ultimo_cron: null, pode_refazer: false, motivo_refazer: "Nenhum run agendado encontrado.", erro_ultimo_cron: null };
-    }
-    if (typeof run.id !== "number") throw new FalhaGithub("GitHub devolveu um run sem id.");
-    const jobs = await lerGithub(fetchFn, token, `${base}/runs/${run.id}/jobs?per_page=100`, signal);
-    if (!Array.isArray(jobs.jobs)) throw new FalhaGithub("GitHub devolveu as etapas fora do formato.");
-    const etapas: EtapaCron[] = jobs.jobs.map((j: Record<string, unknown>) => ({
-      nome: texto(j.name) ?? "",
-      status: texto(j.status),
-      conclusion: texto(j.conclusion),
-      started_at: texto(j.started_at),
-      completed_at: texto(j.completed_at),
-    }));
-    const ultimo: UltimoCron = {
-      run_id: run.id,
-      status: texto(run.status),
-      conclusion: texto(run.conclusion),
-      run_attempt: typeof run.run_attempt === "number" ? run.run_attempt : null,
-      created_at: texto(run.created_at),
-      html_url: texto(run.html_url),
-      etapas,
-    };
-    let motivo: string | null = null;
-    if (ultimo.status !== "completed") motivo = "O cron agendado ainda não terminou.";
-    else if (!CONCLUSOES_REFAZER.has(ultimo.conclusion ?? "")) motivo = `O cron agendado terminou em ${ultimo.conclusion ?? "estado desconhecido"}.`;
-    else if (ativo) motivo = "Há um run do workflow na fila ou rodando.";
-    else {
-      const criado = ultimo.created_at ? Date.parse(ultimo.created_at) : NaN;
-      if (!Number.isFinite(criado) || agora.getTime() - criado >= JANELA_RERUN_MS) {
-        motivo = "O GitHub só refaz runs criados há menos de 30 dias.";
-      } else if (ultimo.run_attempt === null || ultimo.run_attempt >= MAX_TENTATIVA) {
-        motivo = "O GitHub não refaz um run mais de 50 vezes.";
-      }
-    }
-    return { ultimo_cron: ultimo, pode_refazer: motivo === null, motivo_refazer: motivo, erro_ultimo_cron: null };
-  } catch (e) {
-    if (e instanceof FalhaGithub) return erro(e.message);
     console.error("[api-syncs] estadoCron", e instanceof Error ? e.message : String(e));
-    return erro("Falha ao ler o último cron no GitHub.");
+    return { ultimo_cron: null, ...semRefazer, erro_ultimo_cron: "Falha ao ler o status dos jobs no pg_cron." };
   }
+  const porNome = new Map(linhas.map((l) => [l.jobname, l]));
+  const etapas: EtapaCron[] = jobs.map((nome) => {
+    const l = porNome.get(nome);
+    if (!l) return { nome: `${nome} (não agendado)`, status: "completed", conclusion: "skipped", started_at: null, completed_at: null };
+    if (l.ativo === false) return { nome: `${nome} (desativado)`, status: "completed", conclusion: "skipped", started_at: l.inicio, completed_at: l.fim };
+    if (!l.status) return { nome: `${nome} (ainda não rodou)`, status: "completed", conclusion: "skipped", started_at: null, completed_at: null };
+    const rodando = l.status === "running" || l.status === "starting" || l.status === "sending" || l.status === "connecting";
+    return {
+      nome: l.status === "failed" && l.mensagem ? `${nome}: ${l.mensagem}` : nome,
+      status: rodando ? "in_progress" : "completed",
+      conclusion: conclusaoDe(l.status),
+      started_at: l.inicio,
+      completed_at: l.fim,
+    };
+  });
+  const comRun = linhas.filter((l) => l.run_id !== null && l.inicio);
+  if (comRun.length === 0) {
+    return { ultimo_cron: null, ...semRefazer, motivo_refazer: "Nenhum job agendado rodou ainda.", erro_ultimo_cron: null };
+  }
+  const maisRecente = comRun.reduce((a, b) => (Date.parse(b.inicio as string) > Date.parse(a.inicio as string) ? b : a));
+  const falhou = etapas.some((e) => e.conclusion === "failure");
+  const rodando = etapas.some((e) => e.status === "in_progress");
+  return {
+    ultimo_cron: {
+      run_id: maisRecente.run_id as number,
+      status: rodando ? "in_progress" : "completed",
+      conclusion: rodando ? null : falhou ? "failure" : "success",
+      run_attempt: 1,
+      created_at: maisRecente.inicio,
+      html_url: null,
+      etapas,
+    },
+    ...semRefazer,
+    erro_ultimo_cron: null,
+  };
 }
 
 export async function handleRequest(req: Request, ctx: ApiSyncsContext = {}): Promise<Response> {
@@ -225,102 +176,44 @@ export async function handleRequest(req: Request, ctx: ApiSyncsContext = {}): Pr
   }
 
   const action = body.action ?? "listar";
-  const fetchGh = ctx.fetchFn ?? fetch;
   const agora = (ctx.agora ?? (() => new Date()))();
   if (action === "estado_pca") {
     if (cron) {
-      return jsonResponse({
-        error: "Sem permissão: consulta restrita a administradores."
-      }, 403);
+      return jsonResponse({ error: "Sem permissão: consulta restrita a administradores." }, 403);
     }
     return await responderEstadoPca(body, agora, ctx.lerEstadoPca);
   }
   if (action === "listar") {
+    const ler = ctx.lerStatusCron ?? statusPadrao;
     const syncs = await Promise.all(SYNCS.map(async (s) => {
-      if (!s.refazer_cron) return s;
-      const estado = await estadoCron(s, (ctx.githubToken ?? tokenGithub)(), (ctx.githubRepo ?? repoGithub)(), fetchGh, agora);
+      if (!s.cron_jobs || s.cron_jobs.length === 0) return s;
+      const estado = await estadoCron(s.cron_jobs, ler);
       return { ...s, ...estado };
     }));
     return jsonResponse({ action: "listar", syncs });
   }
   if (action === "refazer") {
-    // Só admin (decisão do Marcelo, 16/10): o cron não refaz.
-    if (cron) return jsonResponse({ error: "Sem permissão: só administradores refazem o cron." }, 403);
-    const item = typeof body.sync === "string" ? syncPorSlug(body.sync) : undefined;
-    if (!item || !item.refazer_cron) return jsonResponse({ error: "Este sync não tem cron para refazer." }, 400);
-    const token = (ctx.githubToken ?? tokenGithub)();
-    const repo = (ctx.githubRepo ?? repoGithub)();
-    if (!token) return jsonResponse({ error: "Disparo do coletor não configurado (GITHUB_ACTIONS_TOKEN)." }, 500);
-    if (!repo) return jsonResponse({ error: "GITHUB_ACTIONS_REPO inválido (use dono/repo)." }, 500);
-    // O run vem sempre da leitura do servidor; um run_id no corpo é ignorado.
-    const estado = await estadoCron(item, token, repo, fetchGh, agora);
-    if (estado.erro_ultimo_cron) return jsonResponse({ error: estado.erro_ultimo_cron }, 502);
-    if (!estado.pode_refazer || !estado.ultimo_cron) {
-      return jsonResponse({ error: estado.motivo_refazer ?? "Nada para refazer.", ultimo_cron: estado.ultimo_cron }, 409);
-    }
-    const runId = estado.ultimo_cron.run_id;
-    try {
-      const res = await fetchGh(`https://api.github.com/repos/${repo}/actions/runs/${runId}/rerun-failed-jobs`, {
-        method: "POST",
-        headers: cabecalhosGithub(token),
-        signal: AbortSignal.timeout(30_000),
-      });
-      if (res.status !== 201) {
-        // Só o status e a `message` do GitHub vão para a tela; o corpo inteiro não sai.
-        const corpo = await corpoResposta(res);
-        const msg = typeof corpo === "object" && corpo !== null && typeof (corpo as Record<string, unknown>).message === "string"
-          ? `: ${(corpo as Record<string, unknown>).message}`
-          : "";
-        return jsonResponse({ error: `O GitHub recusou refazer as etapas (HTTP ${res.status}${msg}).`, http: res.status }, 502);
-      }
-      return jsonResponse({
-        action: "refazer",
-        sync: item.slug,
-        http: res.status,
-        resposta: { status: "refeito", run_id: runId, acompanhe: estado.ultimo_cron.html_url },
-      });
-    } catch (e) {
-      console.error("[api-syncs] refazer", e instanceof Error ? e.message : String(e));
-      return jsonResponse({ error: "Falha ao pedir ao GitHub que refaça as etapas." }, 502);
-    }
+    // O "refazer" existia só para runs do GitHub Actions. No Supabase os ticks do pg_cron retomam sozinhos.
+    return jsonResponse({ error: "Sem refazer: os jobs rodam no pg_cron e se retomam sozinhos. Use 'Rodar agora'." }, 400);
   }
-  if (action !== "rodar") return jsonResponse({ error: "Ação não suportada. Use 'listar', 'rodar' ou 'refazer'." }, 400);
+  if (action !== "rodar") return jsonResponse({ error: "Ação não suportada. Use 'listar' ou 'rodar'." }, 400);
 
   const slug = body.sync;
   if (typeof slug !== "string" || !slug) return jsonResponse({ error: "Informe sync." }, 400);
   const item = syncPorSlug(slug);
   if (!item) return jsonResponse({ error: "Sync desconhecido." }, 400);
-  if (!item.disparavel || (!item.funcao && !item.github_workflow)) {
+  if (!item.disparavel || (!item.funcao && !item.rpc)) {
     return jsonResponse({ error: item.aviso ?? "Este sync não dispara daqui." }, 400);
   }
 
-  if (item.github_workflow) {
-    // Coletor Python: roda no GitHub Actions. O token nunca volta na resposta.
-    const token = (ctx.githubToken ?? tokenGithub)();
-    const repo = (ctx.githubRepo ?? repoGithub)();
-    if (!token) return jsonResponse({ error: "Disparo do coletor não configurado (GITHUB_ACTIONS_TOKEN)." }, 500);
-    if (!repo) return jsonResponse({ error: "GITHUB_ACTIONS_REPO inválido (use dono/repo)." }, 500);
-    const inputs = Object.fromEntries(Object.entries(item.corpo).map(([k, v]) => [k, String(v)]));
+  if (item.rpc) {
+    // Função SQL do próprio banco: nada sai do Supabase.
     try {
-      const fetchFn = ctx.fetchFn ?? fetch;
-      const res = await fetchFn(`https://api.github.com/repos/${repo}/actions/workflows/${item.github_workflow}/dispatches`, {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${token}`,
-          Accept: "application/vnd.github+json",
-          "X-GitHub-Api-Version": "2022-11-28",
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ ref: "main", inputs }),
-        signal: AbortSignal.timeout(30_000),
-      });
-      const resposta = res.status === 204
-        ? { status: "disparado", inputs, acompanhe: `https://github.com/${repo}/actions/workflows/${item.github_workflow}` }
-        : await corpoResposta(res);
-      return jsonResponse({ action: "rodar", sync: item.slug, http: res.status, resposta });
+      const resposta = await (ctx.chamarRpc ?? rpcPadrao)(item.rpc.nome, item.rpc.args);
+      return jsonResponse({ action: "rodar", sync: item.slug, http: 200, resposta });
     } catch (e) {
       console.error("[api-syncs]", item.slug, e instanceof Error ? e.message : String(e));
-      return jsonResponse({ error: "Falha ao disparar o workflow no GitHub." }, 502);
+      return jsonResponse({ error: "Falha ao executar a função SQL do sync." }, 502);
     }
   }
 
