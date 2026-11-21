@@ -4,9 +4,10 @@
 material para cliente): Nexor Licitações. Mudança de escopo derivada daqui passa pelo ESCOPO.md e pelo ok do Marcelo. -->
 
 - **Dono:** Marcelo Rosas
-- **Status:** proposta (11/11/2026)
-- **Módulo do `ESCOPO.md`:** 1 (Radar de oportunidades), com a trilha de escopo alimentando o módulo 3 (spec 0032,
-  fase 3)
+- **Status:** aceito como desenho do módulo 11 do `ESCOPO.md` (21/11/2026). Proposta original de 11/11/2026; as
+  perguntas P-2, P-3 e P-5 seguem abertas.
+- **Módulo do `ESCOPO.md`:** 11 (Trilhas e informe). A trilha de escopo alimenta o módulo 3 (spec 0032, fase 3), e o
+  Radar de oportunidades (módulo 1) é a base da coleta.
 - **Nome:** documentação interna continua como Nexor. Todo texto que o cliente vê (informe, e-mail, rótulo de
   alerta) usa **Nexor Licitações**.
 
@@ -82,9 +83,9 @@ Mesma classificação da Alice (p. 8), com sentido de fornecedor:
 | Seleção | **Concorrente frágil** (CNPJ inativo, capital social incompatível) | argumento de recurso | ata + base cadastral | a especificar; fonte não levantada |
 | Gestão | **Ata com saldo** | carona (adesão) | ARP | a especificar |
 
-Cada trilha nova é uma spec própria que diz a fase da spec-mãe que alimenta. Pela regra de foco do `ESCOPO.md`, só a
-trilha de escopo (0055) alimenta a 0032 hoje; as outras ficam `parada` até a fase 3 da 0032 terminar ou o Marcelo
-mudar o foco.
+Cada trilha nova é uma spec própria, e a spec diz qual etapa deste documento ela alimenta (regra de foco do
+`ESCOPO.md`, de 21/11/2026). O módulo 11 está em "agora"; a ordem entre as trilhas é a de "Ordem de construção".
+Trilha sem spec fica `parada`.
 
 ### 4. Informe diário
 
@@ -182,5 +183,6 @@ referência visual da Sala de agentes (conferência técnica no documento do des
 - **P-2.** Cifrões: cortes por sextis do histórico do órgão (cada cifrão = 1/6) ou outra regra? Mínimo de compras
   homologadas para haver histórico?
 - **P-3.** A lista de acompanhamento é só a faixa A, A e B, ou o tenant escolhe (com o ranking como sugestão)?
-- **P-4.** Este documento entra no `ESCOPO.md` como módulo novo ("Trilhas e informe") ou como parte do módulo 1?
+- **P-4.** ~~Este documento entra no `ESCOPO.md` como módulo novo ou como parte do módulo 1?~~ Decidido em 21/11/2026:
+  módulo novo (11, "Trilhas e informe").
 - **P-5.** Vale levantar DOU, Licitações-e e Licitações CAIXA como fontes, ou ficam fora por enquanto?

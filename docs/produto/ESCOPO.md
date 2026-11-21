@@ -1,18 +1,13 @@
 # Escopo do Nexor
 
-<!-- Documento guarda-chuva. Toda spec nova aponta para uma fase daqui. Mudança neste arquivo exige ok do Marcelo. -->
+<!-- Documento guarda-chuva. Toda spec nova aponta para um módulo daqui. Mudança neste arquivo exige ok do Marcelo. -->
 
 - **Dono:** Marcelo Rosas
-- **Situação:** **em revisão desde 11/11/2026** (ok do Marcelo). O produto passa a se organizar em coleta → trilhas →
-  Sala de agentes (`docs/produto/TRILHAS-E-INFORME.md`), e a tabela de módulos e a regra de foco abaixo não refletem
-  isso. Até a revisão terminar:
-  - **suspensa:** a regra de foco (spec nova só se alimentar a 0032). Spec nova diz qual etapa de
-    `TRILHAS-E-INFORME.md` alimenta;
-  - **continua valendo:** objetivo, "Fora de escopo", "Fontes de dados" e "Decisões registradas";
-  - **a revisar:** a spec-mãe (proposta: `TRILHAS-E-INFORME.md` como documento-mãe, com a 0032 como a sala "Leitura do
-    edital"), a tabela de módulos (por sala e etapa), a regra de foco nova e o trecho do `CLAUDE.md` que cita a 0032
-    como spec-mãe.
-- **Spec-mãe em execução:** `specs/0032-agentes-dentro-da-tarefa.md` (em revisão, ver acima)
+- **Situação:** vigente. Revisão aberta em 11/11/2026 e decidida em 21/11/2026 (ok do Marcelo): o produto se organiza em
+  coleta → trilhas → Sala de agentes (`docs/produto/TRILHAS-E-INFORME.md`, módulo 11 da tabela), e **este documento é a
+  única mãe**: toda spec aponta para um módulo da tabela. Não existe "spec-mãe".
+  - **a revisar ainda:** a tabela de módulos por sala e etapa (hoje ela é por módulo).
+- **Specs em execução (módulos em "agora"):** `specs/0032-agentes-dentro-da-tarefa.md` (módulo 3)
 - **Revisão:** a cada spec fechada (skill `ciclo-janelas`)
 
 ## Objetivo final
@@ -38,9 +33,12 @@ Fornecedor de equipamentos de musculação que disputa licitações públicas. C
 | 8 | Base de treino dos agentes | licitações homologadas com Edital/TR/ETP + chat da sessão do portal oficial | (spec a criar) | depois |
 | 9 | Preços e BI | preço, marca e fornecedor de compra homologada | 0009, 0014, 0031 (citada na 0032; o arquivo ainda não está na `main`) | no ar; a 0031 alimenta a fase 3 da 0032 |
 | 10 | Robô de lances | extensão no navegador do operador logado; lance por regra determinística dentro do piso, com o valor final mínimo nativo como rede de segurança | 0039 (`parada`) | depois da fase 3 da 0032 |
+| 11 | **Trilhas e informe** | coleta diária, cruzamento, trilhas determinísticas e informe na Sala de agentes | `TRILHAS-E-INFORME.md` (desenho); 0055 (trilha de escopo, rascunho); demais trilhas: uma spec cada, a criar | **agora** (desenho aceito; ordem de construção no documento) |
 
-**Regra de foco (suspensa em 11/11/2026, ver "Situação"):** enquanto a 0032 não terminar a fase 3, spec nova só entra se alimentar uma fase da 0032.
-As outras ficam com status `parada` e uma linha nesta tabela.
+**Regra de foco (vigente desde 21/11/2026; substitui a regra antiga, que dependia da 0032):** toda spec nova diz, no
+cabeçalho, qual módulo desta tabela ela alimenta e, quando for o caso, qual etapa de `TRILHAS-E-INFORME.md`. No máximo
+2 módulos ficam em "agora" ao mesmo tempo; os demais ficam em "próximo", "depois" ou `parada` (com uma linha nesta
+tabela). Spec que não alimenta módulo em "agora" só entra com ok do Marcelo, registrado em "Decisões registradas".
 
 ## Evidência da decisão "TR primeiro" (20/10)
 Dispensa 311/2026 da BAvT (#2691). O TR pede leg press horizontal, cadeira flexora e piso emborrachado de 15 mm, mas o
@@ -79,6 +77,7 @@ Detalhe em `AGENTS.md`.
 | 09/11 | Visões salvas de filtro são **por usuário** (substitui a decisão de 20/10) |
 | 09/11 | Órgãos e fornecedores continuam numa rota só (`/crm/organizacoes`), com revisão de código e design: o detalhe precisa levar ao certame (oportunidade e portal oficial) |
 | 09/11 | **Painel Executivo e marca NEXOR fora da regra de foco.** A 0040 sai de `parada` e a 0048 calcula no servidor os números do painel (KPIs, funil, prazos, leads). "Alta aderência" sai do painel até haver aderência pelo TR; o bloco de saúde é só para admin da plataforma |
+| 21/11 | **O `ESCOPO.md` é a única mãe; a 0032 é a spec do módulo 3, não "spec-mãe".** `TRILHAS-E-INFORME.md` é o desenho do módulo 11 (resolve a P-4 de lá). Regra de foco nova: toda spec nomeia o módulo que alimenta; no máximo 2 módulos em "agora" |
 
 ## Decisões pendentes
 <!-- Itens que estavam como CONFIRMAR no CLAUDE.md antigo. Resolvido → vai para "Decisões registradas" e para

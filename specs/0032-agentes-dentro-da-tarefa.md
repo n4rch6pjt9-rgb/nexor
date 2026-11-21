@@ -6,8 +6,10 @@
 - **Área:** edge-functions | coletor (indexação) | dashboard-contrato
 - **Depende do ok do Marcelo:** sim (muda o que a tela de tarefas mostra e quando os agentes rodam)
 
-Esta é a spec-mãe do objetivo final. As outras specs abertas só entram aqui como **insumo de uma fase**. O que não alimenta
-uma fase fica parado (ver "Fora de escopo").
+Esta é a spec do módulo 3 do `docs/produto/ESCOPO.md` (agentes na tarefa). Desde 21/11/2026 a mãe do projeto é o
+`ESCOPO.md`, não esta spec. As outras specs abertas entram aqui como **insumo de uma fase**. O que não alimenta uma
+fase fica parado até a fase 3 estar no ar (ver "Fora de escopo"), salvo as specs do módulo 11 (Trilhas e informe),
+também em "agora".
 
 ## Objetivo único
 
