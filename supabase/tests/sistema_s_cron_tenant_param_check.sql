@@ -1,5 +1,5 @@
--- Verificação da spec 0071 (fase 1): migration 20261121130000_sistema_s_cron_tenant_param.sql
--- Rodar depois de aplicar a migration, em banco de teste. Tudo dentro de uma transação revertida.
+-- Verificação da spec 0071 (fase 1): migrations 20261121130000_sistema_s_cron_tenant_param.sql e 20261121140000_sistema_s_selecao_sem_pdm.sql
+-- Rodar depois de aplicar as migrations, em banco de teste. Tudo dentro de uma transação revertida.
 begin;
 
 do $t$
@@ -63,6 +63,31 @@ begin
     raise exception 'CA-3: seleção repetida deveria ser recusada';
   exception when unique_violation then null;
   end;
+
+  -- CA-8: o Sistema S não tem PDM; grupo, classe e item (nCdProduto) são nativos
+  begin
+    insert into public.tenant_coleta_selecao (tenant_id, catalogo, nivel, fonte, codigo)
+      values (v_tenant, 'sistema_s', 'pdm', 'teste_0071', '7115');
+    raise exception 'CA-8: pdm no catálogo sistema_s deveria ser recusado';
+  exception when check_violation then null;
+  end;
+  begin
+    insert into public.tenant_coleta_selecao (tenant_id, catalogo, nivel, codigo)
+      values (v_tenant, 'outro', 'item', '1');
+    raise exception 'CA-8: catálogo desconhecido deveria ser recusado';
+  exception when check_violation then null;
+  end;
+  insert into public.tenant_coleta_selecao (tenant_id, catalogo, nivel, fonte, codigo) values
+    (v_tenant, 'sistema_s', 'grupo',  'teste_0071', '10'),
+    (v_tenant, 'sistema_s', 'classe', 'teste_0071', '226'),
+    (v_tenant, 'sistema_s', 'item',   'teste_0071', '45678');
+  -- o mesmo código de classe no catmat e no sistema_s são seleções distintas
+  insert into public.tenant_coleta_selecao (tenant_id, catalogo, nivel, codigo)
+    values (v_tenant, 'catmat', 'pdm', '7115');
+  if (select count(*) from public.tenant_coleta_selecao where tenant_id = v_tenant and incluido and catalogo = 'sistema_s') <> 3
+     or (select n_selecoes_sistema_s from public.v_tenant_coleta_prontidao where tenant_id = v_tenant) is distinct from 3 then
+    raise exception 'CA-8: a prontidão deve contar 3 seleções do sistema_s';
+  end if;
 
   -- CA-4: nenhuma função de cadastro ou de coleta é executável por anon
   if has_function_privilege('anon', 'public.tenant_visitante_gravar(bigint,text,jsonb)', 'execute')

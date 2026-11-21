@@ -38,13 +38,13 @@ Medido em 21/11/2026, somente leitura:
 | K-1 | `fontes_externas`: `adaptador`, `perfil`, `mural_autorizado`, `cron_ligado`, `delay_ms` (≥ 1000), `max_processos_por_tick`, `orcamento_tick_s`, `falhas_bloqueio_seguidas`, `pausada_ate`, `motivo_pausa` | — | perfil por fonte; `cron_ligado` nasce `false` | — | migration |
 | K-2 | `fonte_externa_pode_coletar(slug)` | slug | boolean | — | service_role |
 | K-3 | `fonte_externa_registrar_resultado(slug, http_status)` | slug, status | `{falhas_bloqueio_seguidas, pausada_ate, motivo_pausa}`; 3 respostas 401/403 seguidas pausam 24 h | 22004 | service_role |
-| K-4 | `tenant_coleta_selecao` | tenant, nível (`palavra_global`, `palavra_objeto`, `grupo`, `classe`, `pdm`, `item`), fonte opcional, termo/termo_pai ou código, incluído | linhas | check de forma; unicidade | leitura: membro e desenvolvedor; escrita: desenvolvedor |
+| K-4 | `tenant_coleta_selecao` | tenant, catálogo (`catmat` \| `sistema_s`), nível, fonte opcional, termo/termo_pai ou código, incluído. Camadas do `catmat`: `palavra_global`, `palavra_objeto`, `grupo`, `classe`, `pdm`, `item`. Camadas do `sistema_s` (catálogo nativo, sem PDM): `palavra_global`, `palavra_objeto`, `grupo`, `classe`, `item` (`nCdProduto`) | linhas | check de forma; `pdm` recusado no `sistema_s`; unicidade por catálogo | leitura: membro e desenvolvedor; escrita: desenvolvedor |
 | K-5 | `tenant_coleta_visitante`, `tenant_visitante_gravar(tenant, fonte, dados)`, `tenant_visitante_ler(tenant, fonte)` | dados: tipo_documento, documento, nome, e-mail, telefone, UF, endereço (opcional, inteiro), consentimento_lgpd, hash_chave (CPF) | gravar: `{completo, campos_faltantes}` (nunca o valor); ler: JSON decifrado ou nulo se incompleto | 42501 (não desenvolvedor), 22023 | gravar: desenvolvedor; ler: service_role |
 | K-6 | `v_tenant_coleta_prontidao` | — | por tenant: seleções incluídas, visitante completo, campos faltantes | — | membro e desenvolvedor (RLS) |
 | K-7 | Edge Function `sync-sistema-s` (fase 2): ações `sonda`, `descobrir`, `carregar` | fonte, orçamento | contagens; grava na fila e em `coleta_externa_run` | 403 registra bloqueio | service_role (pelo tick) |
 | K-8 | Tick e jobs de cron (fase 3) | — | uma chamada por fonte ligada por minuto, respeitando `max_processos_por_tick` | — | pg_cron |
 
-K-1 a K-6 estão neste PR (migration não aplicada). K-7 e K-8 são as fases seguintes.
+K-1 a K-6 estão neste PR (migrations `20261121130000` e `20261121140000`, já aplicadas em produção, sem fonte ligada). K-7 e K-8 são as fases seguintes.
 
 ## Como cada restrição de coleta é respeitada
 
@@ -59,7 +59,7 @@ K-1 a K-6 estão neste PR (migration não aplicada). K-7 e K-8 são as fases seg
 
 ## Parametrização por tenant
 
-Camadas da seleção (spec 0064 e a conversa de 21/11): **palavra global** (Registro de Preço, Contratação, Aquisição, Manutenção, Serviço) → **palavra do objeto** (a segunda palavra, sob uma global) → **grupo** → **classe** → **PDM** → **item**. Em portal do Sistema S, grupo, classe e item seguem a estrutura nativa do portal (`nCdClasse`, `nCdProduto`), com `fonte` preenchida. `incluido = false` exclui. Sem seleção incluída, o tenant não recebe oportunidade classificada.
+Camadas da seleção (spec 0064 e a conversa de 21/11): **palavra global** (Registro de Preço, Contratação, Aquisição, Manutenção, Serviço) → **palavra do objeto** (a segunda palavra, sob uma global) → **grupo** → **classe** → **PDM** → **item** no catálogo `catmat`. No catálogo `sistema_s` **não existe PDM**: as camadas são palavra global → palavra do objeto → grupo → classe → item, nativos do portal (`nCdClasse`, `nCdProduto`), e o banco recusa `pdm` nesse catálogo (migration `20261121140000`). `incluido = false` exclui. Sem seleção incluída, o tenant não recebe oportunidade classificada.
 
 O desenvolvedor (admin interno, `licitagym_desenvolvedor()`) parametriza; o tenant só lê. Se faltar variável de download, `v_tenant_coleta_prontidao` mostra `campos_faltantes_visitante` e o documento fica pendente.
 
@@ -70,6 +70,7 @@ O desenvolvedor (admin interno, `licitagym_desenvolvedor()`) parametriza; o tena
 | CA-1 | K-2 | **Dado** fonte sem perfil, ou com `cron_ligado = false`, ou inexistente, **quando** `fonte_externa_pode_coletar`, **então** falso. | SQL `supabase/tests/sistema_s_cron_tenant_param_check.sql` |
 | CA-2 | K-3 | **Dado** 3 respostas 403 seguidas, **então** a fonte pausa por 24 h; um 200 depois da pausa vencida zera contador e pausa. | idem |
 | CA-3 | K-4 | **Dado** `palavra_objeto` sem `termo_pai`, ou `pdm` sem `codigo`, ou seleção repetida, **então** o banco recusa. | idem |
+| CA-8 | K-4 | **Dado** catálogo `sistema_s`, **quando** se grava nível `pdm` ou catálogo desconhecido, **então** o banco recusa; grupo, classe e item são aceitos e a prontidão os conta. Migration `20261121140000_sistema_s_selecao_sem_pdm.sql`. | idem |
 | CA-4 | K-5 | **Dado** `anon` ou `authenticated`, **quando** chama `tenant_visitante_ler`, **então** sem permissão. | idem |
 | CA-5 | K-5 | **Dado** `authenticated`, **quando** lê `tenant_coleta_visitante`, **então** não vê `vault_secret_id`. | idem |
 | CA-6 | K-1 | **Dado** a migration aplicada, **então** nenhuma fonte está com `cron_ligado`. | idem |
