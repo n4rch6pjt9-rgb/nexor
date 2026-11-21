@@ -22,7 +22,7 @@ Quem trabalha aqui (pessoas e agentes) começa por `CLAUDE.md` (fluxo, convenç�
 | `product-docs/` | documentação do produto para o usuário final (publicada no GitBook, `gitbook-docs.yaml`) |
 | `data/` | dados de apoio versionados (catálogo de tarefas da Lei 14.133, textos de legislação) |
 | `.claude/` | agentes, comandos `/spec` e `/implement`, hooks, regras por área e skills |
-| `.github/` | workflows (saúde, deploy; o `pr-quality.yml` está desabilitado), instruções por área, template de PR, `CODEOWNERS` |
+| `.github/` | workflows (só o deploy das Edge Functions está ativo; os outros 7, incluindo `pr-quality.yml`, estão desabilitados, ver o ADR 001), instruções por área, template de PR, `CODEOWNERS` |
 | `.audit/`, `memory/` | auditorias pontuais e notas de sessões de trabalho (histórico, não são fonte de regra) |
 
 Na raiz também ficam `monitor.sh` (acompanha o log de uma execução local do coletor; a versão de

@@ -13,7 +13,6 @@ Versão: **2026-09-19** | Análise completa em [../catalogo-perguntas.md](../cat
 - **pncp-consulta-v3-api-docs-2026-10-09.json**: OpenAPI da consulta PNCP (`/api/consulta/v3/api-docs`)
 - **compras-dadosabertos-v3-api-docs-2026-10-09.json**: OpenAPI do Dados Abertos Compras.gov.br (`/v3/api-docs`)
   Os três são de 09/10/2026; origem, SHA-256 e comparação em [../avaliacao-apis-pca-2026-10.md](../avaliacao-apis-pca-2026-10.md)
-- **schemas.json** — definiçõesJSON Schema (quando versionado)
 
 ## Propósito
 
@@ -27,7 +26,7 @@ Versionar o lastro da API Compras.gov.br para:
 ## Estrutura
 
 ```
-202609180004_pncp.sql        ← Migrations do banco
+../../../supabase/migrations/202609180004_pca.sql  ← Migration do banco
 ../schemas-consultas.md       ← 8 DTOs mapeados campo→coluna Postgres
 ../catalogo-perguntas.md      ← Perguntas respondíveis + seus bloqueios
 openapi/README.md             ← Este arquivo
