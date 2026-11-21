@@ -7,6 +7,7 @@
 
 Regras de negócio e escopo do produto (sempre carregadas): `.claude/rules/regras-negocio.md`.
 Regras por área (carregam só ao tocar a pasta): `.claude/rules/*.md`, geradas de `.github/instructions/`.
+Regra de ouro (mudança feita é mudança documentada): `AGENTS.md`.
 Escopo do produto e objetivo final: `docs/produto/ESCOPO.md`. Spec-mãe em execução: `specs/0032-agentes-dentro-da-tarefa.md`.
 
 ## O que é

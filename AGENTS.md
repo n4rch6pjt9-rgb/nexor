@@ -61,3 +61,12 @@ Estados explícitos de carregando, vazio e erro. Nunca esconder ausência de dad
 Código escrito não é tarefa pronta. Quando se aplica: typecheck, lint, testes relevantes e build passam; mudança de
 banco tem migration; nenhum segredo entrou; sem regressão óbvia; dado real no lugar de dado fixo.
 Se alguma verificação não puder rodar, diga isso explicitamente.
+
+## Regra de ouro: mudança feita é mudança documentada
+<!-- RASCUNHO provisório: o texto definitivo é do Marcelo e substitui esta seção. -->
+Toda mudança entra com a documentação que ela torna velha, no mesmo PR. Antes de pedir merge:
+- README, `CLAUDE.md`, `AGENTS.md`, spec e `docs/` que citam o que mudou (caminho, comando, número, comportamento) foram atualizados;
+- caminho ou comando citado em documento existe no repositório (confira com `ls`/`git ls-files`);
+- fato com data ("em 08/10...", volumes observados) vai para `docs/`, nunca para README, `CLAUDE.md` ou `AGENTS.md`;
+- spec entregue tem o status atualizado; mudança sem documentação atualizada não está pronta.
+O PR registra o que foi atualizado na seção "Documentação atualizada".
