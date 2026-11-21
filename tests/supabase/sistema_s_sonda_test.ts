@@ -5,6 +5,7 @@ import {
   compararChaves,
   compararFontes,
   corpoListagem,
+  parametrosListagemValidos,
   type FonteSonda,
   limpar,
   podeSondar,
@@ -215,4 +216,20 @@ Deno.test("compararFontes mostra o que muda de um portal para outro", async () =
   const c = compararFontes([a, b]);
   assertEquals(c.referencia, "a");
   assertEquals((c.diferencas[0] as { listagem: { so_na_outra: string[] } }).listagem.so_na_outra, ["chatUrl"]);
+});
+
+Deno.test("corpo da listagem aceita tipo de mural, ordenação e tamanho por fonte", () => {
+  const c = corpoListagem("", 1, 50, { tipoMural: 4, ordenarPor: "TDTINICIAL" });
+  assertEquals(c.dtoProcesso.tmpTipoMuralProcesso, 4);
+  assertEquals(c.dtoProcesso.sOrdenarPor, "TDTINICIAL");
+  assertEquals(c.dtoProcesso.dtoPaginacao, { nPaginaDe: 1, nPaginaAte: 50 });
+});
+
+Deno.test("parâmetros de listagem rejeitam valores fora da faixa", () => {
+  assertEquals(parametrosListagemValidos(undefined), {});
+  assertEquals(parametrosListagemValidos({ tipoMural: 4, ordenarPor: "TDTINICIAL", tamanho: 50 }), { tipoMural: 4, ordenarPor: "TDTINICIAL", tamanho: 50 });
+  assertEquals(parametrosListagemValidos({ tamanho: 51 }), null);
+  assertEquals(parametrosListagemValidos({ ordenarPor: "x; drop" }), null);
+  assertEquals(parametrosListagemValidos({ tipoMural: 1.5 }), null);
+  assertEquals(parametrosListagemValidos([]), null);
 });

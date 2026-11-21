@@ -1,7 +1,7 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { corsHeaders, jsonResponse, requireCronAuth } from "../_shared/http.ts";
 import { createServiceClient } from "../_shared/pncp/supabase-admin.ts";
-import { compararFontes, type FonteSonda, sondarFonte } from "../_shared/coletor/paradigma-sonda.ts";
+import { compararFontes, type FonteSonda, parametrosListagemValidos, sondarFonte } from "../_shared/coletor/paradigma-sonda.ts";
 
 // Spec 0071 (fase 2), contrato K-7. Por enquanto só a ação `sonda`: somente leitura, não grava licitação.
 // `descobrir` e `carregar` entram na fase 3 (junto do tick), depois de a sonda comparar os portais.
@@ -41,6 +41,8 @@ Deno.serve(async (req) => {
   }
   const slugs = listaDeFontes(body);
   if (!slugs) return jsonResponse({ error: `fontes: lista de 1 a ${MAX_FONTES} slugs` }, 400);
+  const listagem = parametrosListagemValidos(body.listagem);
+  if (!listagem) return jsonResponse({ error: "listagem: tipoMural 0-9, ordenarPor A-Z (3-20), tamanho 1-50" }, 400);
   const amostra = Number.isInteger(body.amostra) ? Math.min(Math.max(body.amostra as number, 1), 3) : 2;
 
   const client = createServiceClient();
@@ -71,7 +73,7 @@ Deno.serve(async (req) => {
       });
       continue;
     }
-    relatorios.push(await sondarFonte(f, { amostra, registrar }));
+    relatorios.push(await sondarFonte(f, { amostra, registrar, listagem }));
   }
   return jsonResponse({ acao: "sonda", somente_leitura: true, relatorios, comparacao: compararFontes(relatorios) });
 });

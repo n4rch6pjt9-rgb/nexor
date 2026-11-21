@@ -126,11 +126,34 @@ export function urlMetodo(base: string, metodo: string): string {
   return `${base.replace(/\/+$/, "")}/WebService/Servicos.asmx/${metodo}`;
 }
 
-export function corpoListagem(texto = "", de = 1, ate = TAMANHO_AMOSTRA_LISTAGEM) {
+export type ParametrosListagem = { tipoMural?: number; ordenarPor?: string; tamanho?: number };
+
+/** Valida o que vem do corpo da requisição: só inteiros curtos e um identificador em maiúsculas. */
+export function parametrosListagemValidos(v: unknown): ParametrosListagem | null {
+  if (v === undefined) return {};
+  if (!v || typeof v !== "object" || Array.isArray(v)) return null;
+  const o = v as Record<string, unknown>;
+  const r: ParametrosListagem = {};
+  if (o.tipoMural !== undefined) {
+    if (!Number.isInteger(o.tipoMural) || (o.tipoMural as number) < 0 || (o.tipoMural as number) > 9) return null;
+    r.tipoMural = o.tipoMural as number;
+  }
+  if (o.ordenarPor !== undefined) {
+    if (typeof o.ordenarPor !== "string" || !/^[A-Z]{3,20}$/.test(o.ordenarPor)) return null;
+    r.ordenarPor = o.ordenarPor;
+  }
+  if (o.tamanho !== undefined) {
+    if (!Number.isInteger(o.tamanho) || (o.tamanho as number) < 1 || (o.tamanho as number) > 50) return null;
+    r.tamanho = o.tamanho as number;
+  }
+  return r;
+}
+
+export function corpoListagem(texto = "", de = 1, ate = TAMANHO_AMOSTRA_LISTAGEM, p: ParametrosListagem = {}) {
   return {
     dtoProcesso: {
       nAnoFinalizacao: 0,
-      tmpTipoMuralProcesso: 2,
+      tmpTipoMuralProcesso: p.tipoMural ?? 2,
       nCdModulo: 0,
       nCdModalidade: 0,
       nCdModalidadeFase: 0,
@@ -144,7 +167,7 @@ export function corpoListagem(texto = "", de = 1, ate = TAMANHO_AMOSTRA_LISTAGEM
       sDsObjeto: texto,
       sDtPeriodoDe: "",
       sDtPeriodoAte: "",
-      sOrdenarPor: "NCDPROCESSO",
+      sOrdenarPor: p.ordenarPor ?? "NCDPROCESSO",
       sOrdenarPorDirecao: "DESC",
       dtoPaginacao: { nPaginaDe: de, nPaginaAte: ate },
       dtoIdioma: { nCdIdioma: 1 },
@@ -196,6 +219,7 @@ export type OpcoesSonda = {
   timeoutMs?: number;
   /** Chamado a cada resposta HTTP (para `fonte_externa_registrar_resultado`). Falha dele não derruba a sonda. */
   registrar?: (slug: string, status: number) => Promise<void>;
+  listagem?: ParametrosListagem;
   agora?: () => number;
 };
 
@@ -294,7 +318,7 @@ export async function sondarFonte(f: FonteSonda, op: OpcoesSonda = {}): Promise<
       rel.avisos.push("orçamento de tempo esgotado antes da listagem");
       return rel;
     }
-    const lista = await ws("PesquisarProcessos", corpoListagem());
+    const lista = await ws("PesquisarProcessos", corpoListagem("", 1, op.listagem?.tamanho ?? TAMANHO_AMOSTRA_LISTAGEM, op.listagem));
     if (!Array.isArray(lista)) return rel;
     const chavesLista = uniaoDeChaves(lista);
     rel.listagem = {
@@ -326,7 +350,10 @@ export async function sondarFonte(f: FonteSonda, op: OpcoesSonda = {}): Promise<
       const mod = moduloDe(x);
       modulos.add(mod);
       const d = await ws("PesquisarProcessoDetalhes", corpoDetalhe(id, mod));
-      if (!d || typeof d !== "object" || Array.isArray(d)) continue;
+      if (!d || typeof d !== "object" || Array.isArray(d)) {
+        rel.avisos.push(`PesquisarProcessoDetalhes (processo ${id}, módulo ${mod}): .d veio ${d === null ? "nulo" : Array.isArray(d) ? "lista" : typeof d}`);
+        continue;
+      }
       const det = d as Record<string, unknown>;
       detalhes.push(det);
       if (!noOrcamento()) break;
