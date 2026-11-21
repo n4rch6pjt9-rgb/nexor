@@ -26,9 +26,10 @@ banco, Edge Functions e coletores. Frontend: `n4rch6pjt9-rgb/Dashboard---LicitaG
 | `docs/` | produto, arquitetura, schemas das APIs oficiais, runbooks |
 
 ## Como testar (padrão local e checklist antes do PR)
-A CI `pr-quality.yml` está **desabilitada de propósito** (decisão do Marcelo; motivo e data: [Marcelo informa]).
-Os comandos abaixo, que esse workflow definia, continuam sendo o padrão local e o checklist antes do PR, mas nenhuma
-CI os executa por você: rode à mão e registre no PR o que rodou.
+A CI `pr-quality.yml` está **desabilitada de propósito e de forma permanente** (decisão do Marcelo, 21/11/2026,
+motivo: não quer custo com GitHub Actions; ver `docs/arquitetura/adr/001-sem-github-actions.md`). Os comandos abaixo,
+que esse workflow definia, seguem como padrão local e checklist antes do PR, mas **nenhuma CI os executa**: rode à mão
+e cole a saída na seção "Verificação" do PR.
 ```bash
 scripts/ci/deno-check-funcoes.sh [funcao ...]
 deno test tests/supabase --allow-read --allow-write --allow-env --no-prompt
@@ -36,14 +37,18 @@ git diff --name-only origin/main... | scripts/ci/lint-alterados.sh -
 pip install -r requirements-dev.txt && pytest tests/ -q
 cd services/coletor-externo && pip install -r requirements.txt -r ../../requirements-dev.txt && python -m pytest -q
 scripts/validar-migrations.sh        # Postgres 17 descartável (Docker)
-scripts/ci/checar-higiene.sh         # higiene do diff, rodada à mão
+scripts/ci/checar-higiene.sh         # higiene do diff; a saída vai colada no PR
 ```
 **Gate real hoje** (o que barra ou revisa uma mudança antes da `main`):
 1. Pre-commit local (`.githooks`): `git config core.hooksPath .githooks` uma vez por clone. Barra marcador de conflito,
    segredo no conteúdo, log/HAR/compactado/chave/CSV/dump de coleta e item novo na raiz (lista em `scripts/ci/raiz-permitida.txt`).
 2. Branch de preview do Supabase por PR (check **Supabase Preview**), ver a próxima seção.
 3. Agentes revisores (ver "Fluxo de trabalho", item 4); o PR registra o resultado.
-4. `scripts/ci/checar-higiene.sh` rodada à mão, e os comandos acima conforme a área tocada.
+4. Saída da higiene (`scripts/ci/checar-higiene.sh`) e dos comandos acima colada no PR.
+
+**Atenção: commit feito pelo conector do GitHub (MCP) não passa pelo pre-commit.** Nesse caso rode a higiene à mão
+antes de abrir o PR. Sem CI, segredo, arquivo proibido e regressão só aparecem se alguém rodar. Branch protection
+não pode exigir checks que não existem.
 
 - Pendências conhecidas: `.github/ci/deno-check-pendentes.txt` e `supabase/tests/pendentes.txt`. A lista só diminui.
 - Quem toca um arquivo resolve o lint dele inteiro. Não acrescente regra de lint sem limpar a base.

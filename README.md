@@ -18,7 +18,7 @@ Quem trabalha aqui (pessoas e agentes) começa por `CLAUDE.md` (fluxo, convenç�
 | `scripts/` | scripts de verificação (`scripts/ci/`), operação (`scripts/ops/`) e coletores antigos |
 | `tests/` | pytest da raiz e testes Deno (`tests/supabase/`) |
 | `specs/` | uma spec por mudança não trivial; fluxo em `specs/README.md` |
-| `docs/` | produto, arquitetura, schemas das APIs oficiais, runbooks, fatos datados |
+| `docs/` | produto, arquitetura (ADRs em `docs/arquitetura/adr/`), schemas das APIs oficiais, runbooks, fatos datados |
 | `product-docs/` | documentação do produto para o usuário final (publicada no GitBook, `gitbook-docs.yaml`) |
 | `data/` | dados de apoio versionados (catálogo de tarefas da Lei 14.133, textos de legislação) |
 | `.claude/` | agentes, comandos `/spec` e `/implement`, hooks, regras por área e skills |
@@ -31,9 +31,9 @@ piso). A lista de itens permitidos na raiz é `scripts/ci/raiz-permitida.txt`.
 
 ## Como testar
 
-A CI `pr-quality.yml` está **desabilitada de propósito** (decisão do Marcelo; motivo e data: [Marcelo informa]). Os
-comandos abaixo, que esse workflow definia, continuam sendo o padrão local e o checklist antes do PR, mas nenhuma CI
-os executa: rode à mão.
+A CI `pr-quality.yml` está **desabilitada de propósito e de forma permanente** (decisão do Marcelo, 21/11/2026,
+motivo: não quer custo com GitHub Actions; ver `docs/arquitetura/adr/001-sem-github-actions.md`). Os comandos abaixo,
+que esse workflow definia, seguem como padrão local e checklist antes do PR, mas nenhuma CI os executa: rode à mão.
 
 ```bash
 git config core.hooksPath .githooks                      # uma vez por clone (pre-commit de higiene)
@@ -42,12 +42,13 @@ deno test tests/supabase --allow-read --allow-write --allow-env --no-prompt
 pip install -r requirements-dev.txt && pytest tests/ -q
 cd services/coletor-externo && pip install -r requirements.txt -r ../../requirements-dev.txt && python -m pytest -q
 scripts/validar-migrations.sh                            # Postgres 17 descartável (Docker)
-scripts/ci/checar-higiene.sh                             # higiene do diff, rodada à mão
+scripts/ci/checar-higiene.sh                             # higiene do diff; a saída vai colada no PR
 ```
 
 O gate real antes da `main`: pre-commit local (`.githooks`), branch de preview do Supabase por PR (check **Supabase
-Preview**), agentes revisores (`.claude/agents/`) e a checagem de higiene rodada à mão. Detalhes, pendências
-conhecidas e regras de lint: `CLAUDE.md`, seção "Como testar".
+Preview**), agentes revisores (`.claude/agents/`) e a saída da higiene colada no PR. **Commit feito pelo conector do
+GitHub não passa pelo pre-commit**: nesse caso rode a higiene à mão. Detalhes, pendências conhecidas e regras de lint:
+`CLAUDE.md`, seção "Como testar".
 
 ## Onde está o quê
 
@@ -55,4 +56,5 @@ conhecidas e regras de lint: `CLAUDE.md`, seção "Como testar".
 - Escopo do produto e objetivo final: `docs/produto/ESCOPO.md`; regras de negócio: `.claude/rules/regras-negocio.md`.
 - Schemas das APIs oficiais: `docs/pncp/schemas-consultas-pncp.md` e `docs/compras-gov/schemas-consultas.md`.
 - Specs: `specs/README.md`. Runbooks e automações: `docs/operacao/`.
+- Decisões de arquitetura: `docs/arquitetura/adr/`.
 - Fatos com data (volumes observados, decisões do coletor, mudanças de endpoint): `docs/coletor-pncp-fatos-datados.md`.
