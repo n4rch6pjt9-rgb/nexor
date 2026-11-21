@@ -28,11 +28,11 @@ Versionar o lastro da API Compras.gov.br para:
 
 ```
 202609180004_pncp.sql        ← Migrations do banco
-schemas-consultas.md          ← 8 DTOs mapeados campo→coluna Postgres
-catalogo-perguntas.md         ← Perguntas respondíveis + seus bloqueios
+../schemas-consultas.md       ← 8 DTOs mapeados campo→coluna Postgres
+../catalogo-perguntas.md      ← Perguntas respondíveis + seus bloqueios
 openapi/README.md             ← Este arquivo
 openapi/schemas-inventory.md  ← 78 DTOs: contagem, tipo, status
-openapi/dto-errors.md         ← Erros críticos do esquema
+openapi/dto-errors-2026-09-19.md ← Erros críticos do esquema
 ```
 
 ## Como se mantém
