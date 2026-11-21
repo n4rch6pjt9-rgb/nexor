@@ -86,4 +86,52 @@ begin
 end
 $t$;
 
+-- CA-7: cadastro de visitante: incompleto fica pendente, completo é lido decifrado, valor nunca volta na resposta
+do $t$
+declare
+  v_tenant bigint;
+  r jsonb;
+begin
+  select id into v_tenant from public.tenants order by id limit 1;
+  perform set_config('request.role', 'service_role', true);
+
+  r := public.tenant_visitante_gravar(v_tenant, null,
+         '{"tipo_documento":"CNPJ","documento":"11222333000181","nome":"Empresa Teste","email":"a@b.invalid"}'::jsonb);
+  if (r ->> 'completo')::boolean or not (r -> 'campos_faltantes') ? 'telefone' or not (r -> 'campos_faltantes') ? 'uf'
+     or not (r -> 'campos_faltantes') ? 'consentimento_lgpd' then
+    raise exception 'CA-7: cadastro sem telefone, UF e aceite deveria sair incompleto: %', r;
+  end if;
+  if r::text like '%11222333000181%' then raise exception 'CA-7: a resposta não pode devolver o documento'; end if;
+  if public.tenant_visitante_ler(v_tenant, 'sescdn') is not null then
+    raise exception 'CA-7: cadastro incompleto deve ler nulo';
+  end if;
+
+  r := public.tenant_visitante_gravar(v_tenant, null,
+         '{"tipo_documento":"CNPJ","documento":"11222333000181","nome":"Empresa Teste","email":"a@b.invalid","telefone":"4733334444","uf":"SC","consentimento_lgpd":"1"}'::jsonb);
+  if not (r ->> 'completo')::boolean then raise exception 'CA-7: cadastro completo deveria sair completo: %', r; end if;
+  if public.tenant_visitante_ler(v_tenant, 'sescdn') ->> 'nome' is distinct from 'Empresa Teste' then
+    raise exception 'CA-7: o padrão do tenant deve valer para qualquer fonte';
+  end if;
+  if (select count(*) from public.tenant_coleta_visitante where tenant_id = v_tenant) <> 1 then
+    raise exception 'CA-7: regravar deve atualizar a mesma linha';
+  end if;
+
+  -- endereço parcial não fecha o cadastro
+  r := public.tenant_visitante_gravar(v_tenant, 'firjan',
+         '{"tipo_documento":"CPF","documento":"12345678909","nome":"Pessoa","email":"a@b.invalid","telefone":"4733334444","uf":"SC","consentimento_lgpd":"1","hash_chave":"0123456789abcdef0123456789abcdef","cep":"88000000"}'::jsonb);
+  if (r ->> 'completo')::boolean or not (r -> 'campos_faltantes') ? 'endereco_cidade' then
+    raise exception 'CA-7: endereço parcial deveria deixar campos faltantes: %', r;
+  end if;
+
+  -- quem não é desenvolvedor nem service_role não grava
+  perform set_config('request.role', 'authenticated', true);
+  begin
+    perform public.tenant_visitante_gravar(v_tenant, null, '{"tipo_documento":"CNPJ"}'::jsonb);
+    raise exception 'CA-7: authenticated sem papel de desenvolvedor não pode gravar';
+  exception when insufficient_privilege then null;
+  end;
+  perform set_config('request.role', '', true);
+end
+$t$;
+
 rollback;

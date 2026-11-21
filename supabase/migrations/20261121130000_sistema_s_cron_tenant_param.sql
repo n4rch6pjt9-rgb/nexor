@@ -253,8 +253,9 @@ declare
   v_nome_chave text;
   v_secret     uuid;
   v_completo   boolean;
+  v_tam        integer;
 begin
-  if not public.licitagym_desenvolvedor() and auth.role() is distinct from 'service_role' then
+  if not coalesce(public.licitagym_desenvolvedor(), false) and auth.role() is distinct from 'service_role' then
     raise exception 'tenant_visitante_gravar: só o desenvolvedor parametriza o tenant' using errcode = '42501';
   end if;
   if p_dados is null or jsonb_typeof(p_dados) <> 'object' then
@@ -271,14 +272,15 @@ begin
   end if;
 
   -- campos exigidos (mesmos do coletor/documentos_paradigma.py); a validação do dígito verificador fica no coletor
-  if length(v_doc) <> case v_tipo when 'CNPJ' then 14 else 11 end then v_faltam := v_faltam || 'documento'; end if;
-  if coalesce(nullif(trim(p_dados ->> 'nome'), ''), '') = '' then v_faltam := v_faltam || 'nome'; end if;
-  if coalesce(nullif(trim(p_dados ->> 'email'), ''), '') = '' then v_faltam := v_faltam || 'email'; end if;
-  if coalesce(nullif(trim(p_dados ->> 'telefone'), ''), '') = '' then v_faltam := v_faltam || 'telefone'; end if;
-  if coalesce(p_dados ->> 'uf', '') !~ '^[A-Za-z]{2}$' then v_faltam := v_faltam || 'uf'; end if;
-  if coalesce(p_dados ->> 'consentimento_lgpd', '') <> '1' then v_faltam := v_faltam || 'consentimento_lgpd'; end if;
+  v_tam := case when v_tipo = 'CNPJ' then 14 else 11 end;
+  if length(v_doc) <> v_tam then v_faltam := array_append(v_faltam, 'documento'::text); end if;
+  if coalesce(nullif(trim(p_dados ->> 'nome'), ''), '') = '' then v_faltam := array_append(v_faltam, 'nome'::text); end if;
+  if coalesce(nullif(trim(p_dados ->> 'email'), ''), '') = '' then v_faltam := array_append(v_faltam, 'email'::text); end if;
+  if coalesce(nullif(trim(p_dados ->> 'telefone'), ''), '') = '' then v_faltam := array_append(v_faltam, 'telefone'::text); end if;
+  if coalesce(p_dados ->> 'uf', '') !~ '^[A-Za-z]{2}$' then v_faltam := array_append(v_faltam, 'uf'::text); end if;
+  if coalesce(p_dados ->> 'consentimento_lgpd', '') <> '1' then v_faltam := array_append(v_faltam, 'consentimento_lgpd'::text); end if;
   if v_tipo = 'CPF' and length(coalesce(p_dados ->> 'hash_chave', '')) < 32 then
-    v_faltam := v_faltam || 'hash_chave';
+    v_faltam := array_append(v_faltam, 'hash_chave'::text);
   end if;
   -- endereço é opcional, mas vem inteiro (CEP com 8 dígitos)
   foreach v_end_campo in array v_end loop
@@ -287,11 +289,11 @@ begin
   if v_end_algum then
     foreach v_end_campo in array v_end loop
       if coalesce(nullif(trim(p_dados ->> v_end_campo), ''), '') = '' then
-        v_faltam := v_faltam || ('endereco_' || v_end_campo);
+        v_faltam := array_append(v_faltam, 'endereco_' || v_end_campo);
       end if;
     end loop;
     if regexp_replace(coalesce(p_dados ->> 'cep', ''), '\D', '', 'g') !~ '^[0-9]{8}$' and not ('endereco_cep' = any (v_faltam)) then
-      v_faltam := v_faltam || 'endereco_cep';
+      v_faltam := array_append(v_faltam, 'endereco_cep'::text);
     end if;
   end if;
 
