@@ -247,6 +247,19 @@ que cobrem os 58 PDMs do escopo — decisão do owner em 30/09/2026; `--termos-p
 `TERMOS_PADRAO` em `coletor/pncp.py`), classifica cada compra
 pelo objeto **e pelos itens** (`coletor/escopo.py`) e grava compra, itens, **vencedores** e arquivos.
 
+### Regra de identificação (IMPORTANTE)
+
+O número do edital ("Pregão Eletrônico nº 001/2026") **se repete entre órgãos** e não identifica nada.
+- Compra no PNCP → `codigo_externo` = número de controle PNCP (`CNPJ-1-sequencial/ano`).
+- Certame fora do PNCP → **CNPJ do órgão + número do PROCESSO ADMINISTRATIVO**.
+- Um processo administrativo pode ter **várias** compras (ex.: 131 compras num mesmo processo do Exército).
+
+```bash
+python3 -m coletor.buscar_processo "00007.20260204/0002-28" --cnpj 07.540.925/0001-74
+python3 -m coletor.pncp --corrigir-processos   # corrige compras gravadas até a v12
+python3 -m coletor.processo_edital --dry-run    # completa processos curtos ("4") lendo o edital
+```
+
 Três modos. O modo só escolhe o filtro `status` da busca no PNCP; não define sozinho a prioridade gravada.
 
 | Modo | Filtro PNCP | Prioridade |

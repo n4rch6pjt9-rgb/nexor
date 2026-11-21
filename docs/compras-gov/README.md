@@ -36,11 +36,11 @@ Status: Estrutura base pronta. Aguardando schema JSON com 77 endpoints.
 | Arquivo | Propósito |
 |---------|-----------|
 | `ESTRATEGIA_CONSULTA.md` | Planejamento de coleta (15 módulos, 77 endpoints, rate limits) |
-| `consulta-types.ts` | Tipos TypeScript |
-| `consulta-client.ts` | Cliente genérico (fetch, retry, paginação automática) |
-| `sync-comprasgov-consulta/index.ts` | Edge Function (orquestra sync runs) |
-| `comprasgov_consulta_collector.py` | Script CLI para coleta paralela segura |
-| `comprasgov_consulta_schema.json` | **FALTA:** 77 endpoints (você extraiu, vamos usar aqui) |
+| `supabase/functions/_shared/compras-gov/consulta-types.ts` | Tipos TypeScript |
+| `supabase/functions/_shared/compras-gov/consulta-client.ts` | Cliente genérico (fetch, retry, paginação automática) |
+| `supabase/functions/sync-comprasgov-consulta/index.ts` | Edge Function (orquestra sync runs) |
+| `scripts/comprasgov_consulta_collector.py` | Script CLI para coleta paralela segura |
+| `comprasgov_consulta_schema.json` | Schema dos 77 endpoints (nesta pasta) |
 
 ## Como Usar
 

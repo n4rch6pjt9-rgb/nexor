@@ -11,4 +11,6 @@ Fluxo:
 3. `/implement specs/NNNN-slug.md` escreve primeiro os testes de cada critério (falhando), depois o código, roda
    as checagens da CI e os agentes revisores, e abre o PR em draft. Sem merge e sem deploy.
 
-Numeração: próximo número livre com 4 dígitos (`ls specs`). Spec entregue fica no repositório como registro.
+Numeração: próximo número livre com 4 dígitos (`ls specs`; há lacunas históricas, como 0007, 0010, 0011, 0054, 0055,
+0060 e 0062, que não se reaproveitam). Nome do arquivo: `NNNN-slug.md`, sem espaços nem acentos. Spec entregue fica no
+repositório como registro.

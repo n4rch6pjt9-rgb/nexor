@@ -1,3 +1,4 @@
+# DESABILITADO DE PROPÓSITO (ADR 001); não religar sem decisão do Marcelo. Os scripts continuam em uso local.
 # Gate de qualidade em PRs: typecheck, lint, testes e migrations.
 # Qualquer erro derruba o job. Os mesmos scripts rodam no pre-commit (.githooks/pre-commit) e à mão.
 #   deno-edge          deno check de todas as funções (pendências em .github/ci/deno-check-pendentes.txt)

@@ -61,3 +61,17 @@ Estados explícitos de carregando, vazio e erro. Nunca esconder ausência de dad
 Código escrito não é tarefa pronta. Quando se aplica: typecheck, lint, testes relevantes e build passam; mudança de
 banco tem migration; nenhum segredo entrou; sem regressão óbvia; dado real no lugar de dado fixo.
 Se alguma verificação não puder rodar, diga isso explicitamente.
+
+## Regra de ouro: mudança feita é mudança documentada
+Uma mudança só está pronta quando a documentação que ela afeta foi atualizada no mesmo PR.
+1. Antes de marcar o PR como pronto, rode `git diff --name-only origin/main...` e, para cada área
+   tocada, ache a doc que a descreve (README da pasta, `docs/`, spec, `.claude/rules/`, `CLAUDE.md`,
+   `AGENTS.md`). Confira se ainda é verdade e corrija.
+2. Caminho ou comando citado em documento existe no repositório (confira com `git ls-files`).
+3. O PR tem a seção "Documentação atualizada": arquivos tocados, ou "nenhuma, porque ...".
+4. A spec da mudança recebe status, critérios cumpridos, decisões tomadas e o que ficou de fora.
+5. Fato com data vai para `docs/`, nunca para README, `CLAUDE.md` ou `AGENTS.md`.
+6. Ao mover ou apagar conteúdo de uma doc, diga para onde foi. Regra sem data não se apaga: se move.
+7. Doc desatualizada achada no caminho: corrija no mesmo PR se for pequena; senão abra issue.
+8. `AGENTS.md`, `CLAUDE.md` e README da raiz mudam só por PR. Toda janela faz `git fetch` e
+   rebase na `main` antes de começar um ciclo.

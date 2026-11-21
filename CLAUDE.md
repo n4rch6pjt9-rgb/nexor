@@ -7,6 +7,7 @@
 
 Regras de negócio e escopo do produto (sempre carregadas): `.claude/rules/regras-negocio.md`.
 Regras por área (carregam só ao tocar a pasta): `.claude/rules/*.md`, geradas de `.github/instructions/`.
+Regra de ouro (mudança feita é mudança documentada): `AGENTS.md`.
 Escopo do produto e objetivo final: `docs/produto/ESCOPO.md`. Spec-mãe em execução: `specs/0032-agentes-dentro-da-tarefa.md`.
 
 ## O que é
@@ -24,7 +25,11 @@ banco, Edge Functions e coletores. Frontend: `n4rch6pjt9-rgb/Dashboard---LicitaG
 | `specs/` | uma spec por mudança não trivial (`/spec`), template em `specs/_template.md` |
 | `docs/` | produto, arquitetura, schemas das APIs oficiais, runbooks |
 
-## Como testar (mesmos comandos da CI `pr-quality.yml`)
+## Como testar (padrão local e checklist antes do PR)
+A CI `pr-quality.yml` está **desabilitada de propósito e de forma permanente** (decisão do Marcelo, 21/11/2026,
+motivo: não quer custo com GitHub Actions; ver `docs/arquitetura/adr/001-sem-github-actions.md`). Os comandos abaixo,
+que esse workflow definia, seguem como padrão local e checklist antes do PR, mas **nenhuma CI os executa**: rode à mão
+e cole a saída na seção "Verificação" do PR.
 ```bash
 scripts/ci/deno-check-funcoes.sh [funcao ...]
 deno test tests/supabase --allow-read --allow-write --allow-env --no-prompt
@@ -32,9 +37,19 @@ git diff --name-only origin/main... | scripts/ci/lint-alterados.sh -
 pip install -r requirements-dev.txt && pytest tests/ -q
 cd services/coletor-externo && pip install -r requirements.txt -r ../../requirements-dev.txt && python -m pytest -q
 scripts/validar-migrations.sh        # Postgres 17 descartável (Docker)
+scripts/ci/checar-higiene.sh         # higiene do diff; a saída vai colada no PR
 ```
-- Pre-commit: `git config core.hooksPath .githooks` uma vez por clone. Ele e a CI barram marcador de conflito,
-  segredo no conteúdo, log/HAR/compactado/chave/CSV/dump de coleta e item novo na raiz (`scripts/ci/checar-higiene.sh`, lista em `raiz-permitida.txt`).
+**Gate real hoje** (o que barra ou revisa uma mudança antes da `main`):
+1. Pre-commit local (`.githooks`): `git config core.hooksPath .githooks` uma vez por clone. Barra marcador de conflito,
+   segredo no conteúdo, log/HAR/compactado/chave/CSV/dump de coleta e item novo na raiz (lista em `scripts/ci/raiz-permitida.txt`).
+2. Branch de preview do Supabase por PR (check **Supabase Preview**), ver a próxima seção.
+3. Agentes revisores (ver "Fluxo de trabalho", item 4); o PR registra o resultado.
+4. Saída da higiene (`scripts/ci/checar-higiene.sh`) e dos comandos acima colada no PR.
+
+**Atenção: commit feito pelo conector do GitHub (MCP) não passa pelo pre-commit.** Nesse caso rode a higiene à mão
+antes de abrir o PR. Sem CI, segredo, arquivo proibido e regressão só aparecem se alguém rodar. Branch protection
+não pode exigir checks que não existem.
+
 - Pendências conhecidas: `.github/ci/deno-check-pendentes.txt` e `supabase/tests/pendentes.txt`. A lista só diminui.
 - Quem toca um arquivo resolve o lint dele inteiro. Não acrescente regra de lint sem limpar a base.
 - Workflow novo do GitHub Actions não usa `uses:` (marketplace bloqueado): siga `pr-quality.yml`.
@@ -75,7 +90,7 @@ MCP do Supabase é somente leitura. Exceção: o que o Marcelo fizer à mão, de
 2. Marcelo aprova (sempre que houver migration, decisão de produto ou dado de produção).
 3. `/implement specs/NNNN-slug.md`: testes dos critérios de aceite primeiro, depois o código, até PR em draft.
 4. Antes de pedir merge: agentes `revisor-codigo` e `revisor-seguranca` (e `revisor-migration` se houver migration,
-   `revisor-tenant` se tocar `api-*` ou tabela com `tenant_id`), mesmo que a CI e o revisor externo tenham passado.
+   `revisor-tenant` se tocar `api-*` ou tabela com `tenant_id`), mesmo que o revisor externo tenha passado.
    O PR registra o resultado. Mudança de classificação: o usuário roda a skill `dry-run-classificacao` e anexa a
    contagem ao PR (ela só é chamada por ele).
 5. Fechamento e início de ciclo (issues dos dois repos, aviso às outras janelas): skill `ciclo-janelas`.
@@ -94,7 +109,8 @@ MCP do Supabase é somente leitura. Exceção: o que o Marcelo fizer à mão, de
 | hooks `bloquear-destrutivo` (antes) e `lint-pos-edicao` (depois de editar `.ts`/`.py`) | automáticos; quem dispara cada automação: `docs/operacao/matriz-automacoes.md` |
 
 ## Observabilidade
-- Saúde: `private.saude_operacional_resumo()` via `api-saude`; `saude.yml` abre issue `alerta-operacional`.
+- Saúde: `private.saude_operacional_resumo()` via `api-saude`. O `saude.yml` está desabilitado (ADR 001): quem checa e
+  alerta fica a definir.
 - Execuções: `private.pncp_sync_run`, `private.coleta_externa_run`, `private.job_queue`.
 - Logs: painel Supabase (Edge Functions) e Cloudflare Workers Logs (Dashboard).
 
