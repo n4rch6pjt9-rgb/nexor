@@ -109,7 +109,8 @@ MCP do Supabase é somente leitura. Exceção: o que o Marcelo fizer à mão, de
 | hooks `bloquear-destrutivo` (antes) e `lint-pos-edicao` (depois de editar `.ts`/`.py`) | automáticos; quem dispara cada automação: `docs/operacao/matriz-automacoes.md` |
 
 ## Observabilidade
-- Saúde: `private.saude_operacional_resumo()` via `api-saude`; `saude.yml` abre issue `alerta-operacional`.
+- Saúde: `private.saude_operacional_resumo()` via `api-saude`. O `saude.yml` está desabilitado (ADR 001): quem checa e
+  alerta fica a definir.
 - Execuções: `private.pncp_sync_run`, `private.coleta_externa_run`, `private.job_queue`.
 - Logs: painel Supabase (Edge Functions) e Cloudflare Workers Logs (Dashboard).
 
