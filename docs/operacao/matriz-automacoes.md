@@ -41,10 +41,11 @@ Legenda da coluna **Quem dispara**:
 |---|---|---|
 | `saude.yml` (saúde operacional; abre issue `alerta-operacional`) | a cada 30 min (minutos 7 e 37) | 🤖 |
 | `sentinela-observador.yml` (confere se o `saude.yml` está rodando) | a cada 30 min (minutos 17 e 47) | 🤖 |
-| `coletor-pncp.yml` | todo dia, 06:00 em Brasília | 🤖; manual com `workflow_dispatch` (`modo`, `dry_run`, `rapido`) |
+| pg_cron `cg-sync-pncp-*` e `licext-publicar-pncp` (coletor PNCP de oportunidades) | planejamento diário às 06:00 em Brasília, coleta a cada minuto; publicação em `licitacoes_externas` no minuto 20 de cada hora | 🤖; tudo no Supabase, sem GitHub Actions; "Rodar agora" na tela Sincronizações (`api-syncs`) |
+| pg_cron `precos-sync-*` e `cg-sync-compras-id-*` (coletor de preços) | planejamento diário às 06:15 em Brasília, coleta a cada minuto, ponte do estimado a cada 30 min | 🤖; tudo no Supabase, sem GitHub Actions; "Rodar agora" na tela Sincronizações |
+| pg_cron `pgc-sync-planejar` e `pgc-sync-tick` (PGC do Compras.gov) | planejamento diário às 06:10 em Brasília, coleta a cada minuto | 🤖; tudo no Supabase, sem GitHub Actions; "Rodar agora" na tela Sincronizações |
 | `coletor-sistema-s.yml` (spec 0064) | todo dia, 06:30 em Brasília (pequenas, médias e descoberta de `fieb`/`sesc_senac_rs`); a cada 2 h, minuto 15 (carga de `fieb`/`sesc_senac_rs`, 60 min) | 🤖; manual com `workflow_dispatch` (`fonte`, `etapa`, `orcamento`, `paginas`, `documentos`, `dry_run`, `processos`) |
 | pg_cron `licitagym-coleta-externa-orfaos` (spec 0063) | de hora em hora (minuto 23) | 🤖; fecha como `incompleta` execução de `coleta_externa_run` presa há mais de 6 h |
-| `coletor-precos.yml` | segunda e quinta, 07:00 em Brasília | 🤖; manual com `workflow_dispatch` (`modo`, `dry_run`, `limite`) |
 | `supabase-auth-check.yml` | só manual | 👤 |
 
 ## 3. Quando rodar `dry-run-classificacao` (gatilho por arquivo)
@@ -76,4 +77,5 @@ Rode antes de abrir o PR se o diff (ou a edição que você vai fazer no app) me
 | hooks do Claude | `node .claude/hooks/bloquear-destrutivo.test.mjs` e `node .claude/hooks/lint-pos-edicao.test.mjs` (a CI roda os dois) |
 | pre-commit | `git config core.hooksPath` deve devolver `.githooks` |
 | agentes e skills | aparecem na lista de agentes e skills do Claude Code no repositório; a tabela do `CLAUDE.md` é a referência |
-| rotinas agendadas | aba Actions do GitHub; a saúde aparece como issue `alerta-operacional` quando falha |
+| rotinas agendadas no GitHub | aba Actions do GitHub; a saúde aparece como issue `alerta-operacional` quando falha |
+| coletores no pg_cron | tela Sincronizações (último cron por job) ou `select * from public.sync_status_cron(array['pgc-sync-tick'])` com a service role |
