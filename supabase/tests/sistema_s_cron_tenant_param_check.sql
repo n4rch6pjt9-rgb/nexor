@@ -1,4 +1,4 @@
--- Verificação da spec 0071 (fase 1): migrations 20261121130000, 20261121140000, 20261121150000 e 20261121160000 (sistema_s_*, coletor_perfis)
+-- Verificação da spec 0071 (fase 1): migrations 20261121130000, 20261121140000, 20261121150000, 20261121160000 e 20261121170000 (sistema_s_*, coletor_perfis, tick)
 -- Rodar depois de aplicar as migrations, em banco de teste. Tudo dentro de uma transação revertida.
 begin;
 
@@ -231,6 +231,61 @@ begin
   select count(*) = 3 into v_ok from public.coletor_perfis
    where slug in ('paradigma_egov_br', 'paradigma_scr360', 'paradigma_firjan');
   if not v_ok then raise exception 'CA-10: perfis iniciais ausentes'; end if;
+end
+$t$;
+
+-- CA-11 (fase 3): o tick decide a ação por fonte sem chamar o portal
+do $t$
+begin
+  insert into public.coletor_perfis (slug, adaptador, escopo, descricao, certificado)
+  values ('paradigma_tick', 'paradigma', 'compartilhado', 'Perfil de teste do tick', true)
+  on conflict (slug) do nothing;
+  insert into public.fontes_externas (slug, entidade, plataforma, base_url, modo_coleta, ativo, perfil)
+  values ('teste_tick', 'Teste', 'paradigma', 'https://exemplo.invalid/portal', 'automatico', true, 'paradigma_tick');
+
+  if private.sistema_s_tick_acao('teste_tick') <> 'fora' then
+    raise exception 'CA-11: fonte com cron_ligado = false deve devolver fora';
+  end if;
+  if private.sistema_s_tick_acao('nao_existe') <> 'fora' then
+    raise exception 'CA-11: fonte inexistente deve devolver fora';
+  end if;
+
+  update public.fontes_externas set cron_ligado = true where slug = 'teste_tick';
+  if private.sistema_s_tick_acao('teste_tick') <> 'descobrir' then
+    raise exception 'CA-11: fonte ligada sem descoberta recente deve descobrir';
+  end if;
+
+  insert into private.coleta_externa_run (fonte, modo, status) values ('teste_tick', 'descoberta', 'executando');
+  if private.sistema_s_tick_acao('teste_tick') <> 'ocupada' then
+    raise exception 'CA-11: execução em andamento deve devolver ocupada';
+  end if;
+
+  update private.coleta_externa_run set status = 'concluida' where fonte = 'teste_tick';
+  if private.sistema_s_tick_acao('teste_tick') <> 'ocioso' then
+    raise exception 'CA-11: descoberta recente e fila vazia deve devolver ocioso';
+  end if;
+
+  insert into private.coleta_externa_fila (fonte, n_cd_origem, modulo, listagem, hash_listagem, status)
+  values ('teste_tick', 1, 59, '{}'::jsonb, 'h', 'pendente');
+  if private.sistema_s_tick_acao('teste_tick') <> 'carregar' then
+    raise exception 'CA-11: fila com pendente deve carregar';
+  end if;
+
+  update private.coleta_externa_run set started_at = now() - interval '2 hours' where fonte = 'teste_tick';
+  if private.sistema_s_tick_acao('teste_tick') <> 'descobrir' then
+    raise exception 'CA-11: descoberta com mais de 1 h deve descobrir de novo, antes de carregar';
+  end if;
+
+  update private.coleta_externa_run set status = 'executando', started_at = now() - interval '30 minutes' where fonte = 'teste_tick';
+  if private.sistema_s_tick_acao('teste_tick') = 'ocupada' then
+    raise exception 'CA-11: execução parada há 30 min não pode travar a fonte';
+  end if;
+
+  -- pausa por bloqueio vale mais que tudo
+  update public.fontes_externas set pausada_ate = now() + interval '1 day' where slug = 'teste_tick';
+  if private.sistema_s_tick_acao('teste_tick') <> 'fora' then
+    raise exception 'CA-11: fonte pausada deve devolver fora';
+  end if;
 end
 $t$;
 
