@@ -182,3 +182,7 @@ verify_jwt = false
 
 [functions.api-disputa]
 verify_jwt = false
+
+# sync-sistema-s (spec 0071, fase 2): Bearer SYNC_CRON_SECRET validado no código. Só a ação `sonda` (somente leitura).
+[functions.sync-sistema-s]
+verify_jwt = false
