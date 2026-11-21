@@ -63,10 +63,15 @@ banco tem migration; nenhum segredo entrou; sem regressão óbvia; dado real no 
 Se alguma verificação não puder rodar, diga isso explicitamente.
 
 ## Regra de ouro: mudança feita é mudança documentada
-<!-- RASCUNHO provisório: o texto definitivo é do Marcelo e substitui esta seção. -->
-Toda mudança entra com a documentação que ela torna velha, no mesmo PR. Antes de pedir merge:
-- README, `CLAUDE.md`, `AGENTS.md`, spec e `docs/` que citam o que mudou (caminho, comando, número, comportamento) foram atualizados;
-- caminho ou comando citado em documento existe no repositório (confira com `ls`/`git ls-files`);
-- fato com data ("em 08/10...", volumes observados) vai para `docs/`, nunca para README, `CLAUDE.md` ou `AGENTS.md`;
-- spec entregue tem o status atualizado; mudança sem documentação atualizada não está pronta.
-O PR registra o que foi atualizado na seção "Documentação atualizada".
+Uma mudança só está pronta quando a documentação que ela afeta foi atualizada no mesmo PR.
+1. Antes de marcar o PR como pronto, rode `git diff --name-only origin/main...` e, para cada área
+   tocada, ache a doc que a descreve (README da pasta, `docs/`, spec, `.claude/rules/`, `CLAUDE.md`,
+   `AGENTS.md`). Confira se ainda é verdade e corrija.
+2. Caminho ou comando citado em documento existe no repositório (confira com `git ls-files`).
+3. O PR tem a seção "Documentação atualizada": arquivos tocados, ou "nenhuma, porque ...".
+4. A spec da mudança recebe status, critérios cumpridos, decisões tomadas e o que ficou de fora.
+5. Fato com data vai para `docs/`, nunca para README, `CLAUDE.md` ou `AGENTS.md`.
+6. Ao mover ou apagar conteúdo de uma doc, diga para onde foi. Regra sem data não se apaga: se move.
+7. Doc desatualizada achada no caminho: corrija no mesmo PR se for pequena; senão abra issue.
+8. `AGENTS.md`, `CLAUDE.md` e README da raiz mudam só por PR. Toda janela faz `git fetch` e
+   rebase na `main` antes de começar um ciclo.
