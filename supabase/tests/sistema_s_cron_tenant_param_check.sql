@@ -1,4 +1,4 @@
--- Verificação da spec 0071 (fase 1): migrations 20261121130000_sistema_s_cron_tenant_param.sql e 20261121140000_sistema_s_selecao_sem_pdm.sql
+-- Verificação da spec 0071 (fase 1): migrations 20261121130000, 20261121140000 e 20261121150000 (sistema_s_*)
 -- Rodar depois de aplicar as migrations, em banco de teste. Tudo dentro de uma transação revertida.
 begin;
 
@@ -88,6 +88,28 @@ begin
      or (select n_selecoes_sistema_s from public.v_tenant_coleta_prontidao where tenant_id = v_tenant) is distinct from 3 then
     raise exception 'CA-8: a prontidão deve contar 3 seleções do sistema_s';
   end if;
+
+  -- CA-9: grupo, classe e item do Sistema S são códigos do portal: exigem fonte existente
+  begin
+    insert into public.tenant_coleta_selecao (tenant_id, catalogo, nivel, codigo)
+      values (v_tenant, 'sistema_s', 'classe', '141');
+    raise exception 'CA-9: classe do sistema_s sem fonte deveria ser recusada';
+  exception when check_violation then null;
+  end;
+  begin
+    insert into public.tenant_coleta_selecao (tenant_id, catalogo, nivel, fonte, codigo)
+      values (v_tenant, 'sistema_s', 'item', 'fonte_que_nao_existe', '1');
+    raise exception 'CA-9: fonte inexistente deveria ser recusada';
+  exception when foreign_key_violation then null;
+  end;
+  -- as palavras valem sem fonte, também no sistema_s
+  insert into public.tenant_coleta_selecao (tenant_id, catalogo, nivel, termo)
+    values (v_tenant, 'sistema_s', 'palavra_global', 'registro de preço');
+  insert into public.tenant_coleta_selecao (tenant_id, catalogo, nivel, termo_pai, termo)
+    values (v_tenant, 'sistema_s', 'palavra_objeto', 'registro de preço', 'esteira');
+  -- a mesma classe em portais diferentes são seleções distintas
+  insert into public.tenant_coleta_selecao (tenant_id, catalogo, nivel, fonte, codigo)
+    values (v_tenant, 'sistema_s', 'classe', 'firjan', '226'), (v_tenant, 'sistema_s', 'classe', 'sescdn', '226');
 
   -- CA-4: nenhuma função de cadastro ou de coleta é executável por anon
   if has_function_privilege('anon', 'public.tenant_visitante_gravar(bigint,text,jsonb)', 'execute')
