@@ -264,7 +264,8 @@ export function linhaLicitacao(f: FonteColeta, d: Linha, listagem: Linha = {}, a
     anexo_raiz_id: d.nCdAnexo ?? null,
     raw: d,
     last_synced_at: agora.toISOString(),
-    ingestao_origem: "sistema_s_cron",
+    // licitacoes_externas_ingestao_origem_chk aceita apenas 'cron' e 'manual'.
+    ingestao_origem: "cron",
   };
   if (prio !== null) linha.prioridade = prio;
   return linha;
