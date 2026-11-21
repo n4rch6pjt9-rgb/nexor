@@ -126,14 +126,20 @@ export function urlMetodo(base: string, metodo: string): string {
   return `${base.replace(/\/+$/, "")}/WebService/Servicos.asmx/${metodo}`;
 }
 
-export type ParametrosListagem = { tipoMural?: number; ordenarPor?: string; tamanho?: number };
+export const METODOS_LISTAGEM = ["PesquisarProcessos", "PesquisarProcessosPorSituacoesAgrupadas"] as const;
+export type MetodoListagem = (typeof METODOS_LISTAGEM)[number];
+export type ParametrosListagem = { metodo?: MetodoListagem; tipoMural?: number; ordenarPor?: string; tamanho?: number };
 
-/** Valida o que vem do corpo da requisição: só inteiros curtos e um identificador em maiúsculas. */
+/** Valida o que vem do corpo da requisição ou do perfil: método da lista, inteiros curtos e identificador em maiúsculas. */
 export function parametrosListagemValidos(v: unknown): ParametrosListagem | null {
   if (v === undefined) return {};
   if (!v || typeof v !== "object" || Array.isArray(v)) return null;
   const o = v as Record<string, unknown>;
   const r: ParametrosListagem = {};
+  if (o.metodo !== undefined) {
+    if (!(METODOS_LISTAGEM as readonly unknown[]).includes(o.metodo)) return null;
+    r.metodo = o.metodo as MetodoListagem;
+  }
   if (o.tipoMural !== undefined) {
     if (!Number.isInteger(o.tipoMural) || (o.tipoMural as number) < 0 || (o.tipoMural as number) > 9) return null;
     r.tipoMural = o.tipoMural as number;
@@ -219,6 +225,7 @@ export type OpcoesSonda = {
   timeoutMs?: number;
   /** Chamado a cada resposta HTTP (para `fonte_externa_registrar_resultado`). Falha dele não derruba a sonda. */
   registrar?: (slug: string, status: number) => Promise<void>;
+  /** Método e parâmetros da listagem (do perfil da fonte, ou sobrepostos no corpo da chamada). */
   listagem?: ParametrosListagem;
   agora?: () => number;
 };
@@ -313,12 +320,12 @@ export async function sondarFonte(f: FonteSonda, op: OpcoesSonda = {}): Promise<
     }
     await mural.arrayBuffer().catch(() => undefined);
 
-    // 2. Listagem.
+    // 2. Listagem, pelo método e parâmetros do perfil.
     if (!noOrcamento()) {
       rel.avisos.push("orçamento de tempo esgotado antes da listagem");
       return rel;
     }
-    const lista = await ws("PesquisarProcessos", corpoListagem("", 1, op.listagem?.tamanho ?? TAMANHO_AMOSTRA_LISTAGEM, op.listagem));
+    const lista = await ws(op.listagem?.metodo ?? "PesquisarProcessos", corpoListagem("", 1, op.listagem?.tamanho ?? TAMANHO_AMOSTRA_LISTAGEM, op.listagem));
     if (!Array.isArray(lista)) return rel;
     const chavesLista = uniaoDeChaves(lista);
     rel.listagem = {

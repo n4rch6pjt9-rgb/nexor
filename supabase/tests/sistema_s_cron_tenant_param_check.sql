@@ -1,4 +1,4 @@
--- Verificação da spec 0071 (fase 1): migrations 20261121130000, 20261121140000 e 20261121150000 (sistema_s_*)
+-- Verificação da spec 0071 (fase 1): migrations 20261121130000, 20261121140000, 20261121150000 e 20261121160000 (sistema_s_*, coletor_perfis)
 -- Rodar depois de aplicar as migrations, em banco de teste. Tudo dentro de uma transação revertida.
 begin;
 
@@ -13,6 +13,8 @@ begin
   if public.fonte_externa_pode_coletar('teste_0071') then
     raise exception 'CA-1: fonte sem perfil e sem cron_ligado não pode coletar';
   end if;
+  insert into public.coletor_perfis (slug, adaptador, escopo, descricao, certificado)
+  values ('paradigma_teste', 'paradigma', 'compartilhado', 'Perfil de teste', true);
   update public.fontes_externas set perfil = 'paradigma_teste' where slug = 'teste_0071';
   if public.fonte_externa_pode_coletar('teste_0071') then
     raise exception 'CA-1: fonte com cron_ligado = false não pode coletar';
@@ -178,6 +180,57 @@ begin
   exception when insufficient_privilege then null;
   end;
   perform set_config('request.role', '', true);
+end
+$t$;
+
+-- CA-10: perfil por portal. Compartilhado serve várias fontes; só perfil certificado coleta; o banco recusa perfil
+-- inexistente e parâmetro de listagem fora do contrato.
+do $t$
+declare
+  v_ok boolean;
+begin
+  insert into public.fontes_externas (slug, entidade, plataforma, base_url, modo_coleta, ativo, perfil, cron_ligado)
+  values ('teste_0071_b', 'Teste B', 'paradigma', 'https://exemplo.invalid/b/portal', 'automatico', true,
+          'paradigma_teste', true);
+  select count(*) = 2 into v_ok from public.fontes_externas where perfil = 'paradigma_teste';
+  if not v_ok then raise exception 'CA-10: um perfil compartilhado deve servir duas fontes'; end if;
+  if not public.fonte_externa_pode_coletar('teste_0071_b') then
+    raise exception 'CA-10: fonte com perfil certificado deve coletar';
+  end if;
+
+  update public.coletor_perfis set certificado = false where slug = 'paradigma_teste';
+  if public.fonte_externa_pode_coletar('teste_0071_b') then
+    raise exception 'CA-10: perfil não certificado não pode coletar';
+  end if;
+
+  begin
+    update public.fontes_externas set perfil = 'nao_existe' where slug = 'teste_0071_b';
+    raise exception 'CA-10: perfil inexistente deveria violar a FK';
+  exception when foreign_key_violation then null;
+  end;
+  begin
+    update public.coletor_perfis set listagem = '{"tipoMural":12}' where slug = 'paradigma_teste';
+    raise exception 'CA-10: tipoMural fora de 0-9 deveria ser recusado';
+  exception when check_violation then null;
+  end;
+  begin
+    update public.coletor_perfis set listagem = '{"metodo":"ExcluirProcesso"}' where slug = 'paradigma_teste';
+    raise exception 'CA-10: método fora da lista deveria ser recusado';
+  exception when check_violation then null;
+  end;
+  begin
+    update public.coletor_perfis set listagem = '{"cookie":"x"}' where slug = 'paradigma_teste';
+    raise exception 'CA-10: chave fora do contrato deveria ser recusada';
+  exception when check_violation then null;
+  end;
+  update public.coletor_perfis
+     set listagem = '{"metodo":"PesquisarProcessosPorSituacoesAgrupadas","tipoMural":4,"ordenarPor":"TDTINICIAL","tamanho":50}'
+   where slug = 'paradigma_teste';
+
+  -- os três perfis em uso existem e todos os que as fontes citam estão cadastrados
+  select count(*) = 3 into v_ok from public.coletor_perfis
+   where slug in ('paradigma_egov_br', 'paradigma_scr360', 'paradigma_firjan');
+  if not v_ok then raise exception 'CA-10: perfis iniciais ausentes'; end if;
 end
 $t$;
 

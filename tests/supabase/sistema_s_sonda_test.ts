@@ -233,3 +233,23 @@ Deno.test("parâmetros de listagem rejeitam valores fora da faixa", () => {
   assertEquals(parametrosListagemValidos({ tipoMural: 1.5 }), null);
   assertEquals(parametrosListagemValidos([]), null);
 });
+
+Deno.test("a listagem usa o método do perfil da fonte", async () => {
+  const s = servidor({
+    "Mural.aspx": () => new Response("ok", { status: 200 }),
+    PesquisarProcessosPorSituacoesAgrupadas: () => d([{ nCdOrigem: 1 }]),
+  });
+  const rel = await sondarFonte(fonte(), {
+    fetcher: s.fetcher,
+    dormir: sem,
+    amostra: 1,
+    listagem: { metodo: "PesquisarProcessosPorSituacoesAgrupadas", tipoMural: 4 },
+  });
+  assertEquals(rel.listagem?.linhas, 1);
+  assertEquals(s.chamadas[1], "PesquisarProcessosPorSituacoesAgrupadas");
+});
+
+Deno.test("método de listagem fora da lista é recusado", () => {
+  assertEquals(parametrosListagemValidos({ metodo: "ExcluirProcesso" }), null);
+  assertEquals(parametrosListagemValidos({ metodo: "PesquisarProcessos" }), { metodo: "PesquisarProcessos" });
+});
