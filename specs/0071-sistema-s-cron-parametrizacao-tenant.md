@@ -38,13 +38,26 @@ Medido em 21/11/2026, somente leitura:
 | K-1 | `fontes_externas`: `adaptador`, `perfil`, `mural_autorizado`, `cron_ligado`, `delay_ms` (≥ 1000), `max_processos_por_tick`, `orcamento_tick_s`, `falhas_bloqueio_seguidas`, `pausada_ate`, `motivo_pausa` | — | perfil por fonte; `cron_ligado` nasce `false` | — | migration |
 | K-2 | `fonte_externa_pode_coletar(slug)` | slug | boolean | — | service_role |
 | K-3 | `fonte_externa_registrar_resultado(slug, http_status)` | slug, status | `{falhas_bloqueio_seguidas, pausada_ate, motivo_pausa}`; 3 respostas 401/403 seguidas pausam 24 h | 22004 | service_role |
-| K-4 | `tenant_coleta_selecao` | tenant, catálogo (`catmat` \| `sistema_s`), nível, fonte opcional, termo/termo_pai ou código, incluído. Camadas do `catmat`: `palavra_global`, `palavra_objeto`, `grupo`, `classe`, `pdm`, `item`. Camadas do `sistema_s` (catálogo nativo, sem PDM): `palavra_global`, `palavra_objeto`, `grupo`, `classe`, `item` (`nCdProduto`) | linhas | check de forma; `pdm` recusado no `sistema_s`; unicidade por catálogo | leitura: membro e desenvolvedor; escrita: desenvolvedor |
+| K-4 | `tenant_coleta_selecao` | tenant, catálogo (`catmat` \| `sistema_s`), nível, fonte, termo/termo_pai ou código, incluído. `fonte` (referência a `fontes_externas`) é obrigatória em grupo, classe e item do `sistema_s`; as palavras valem sem fonte. Camadas do `catmat`: `palavra_global`, `palavra_objeto`, `grupo`, `classe`, `pdm`, `item`. Camadas do `sistema_s` (catálogo nativo, sem PDM): `palavra_global`, `palavra_objeto`, `grupo`, `classe`, `item` (`nCdProduto`) | linhas | check de forma; `pdm` recusado no `sistema_s`; fonte obrigatória e existente; unicidade por catálogo | leitura: membro e desenvolvedor; escrita: desenvolvedor |
 | K-5 | `tenant_coleta_visitante`, `tenant_visitante_gravar(tenant, fonte, dados)`, `tenant_visitante_ler(tenant, fonte)` | dados: tipo_documento, documento, nome, e-mail, telefone, UF, endereço (opcional, inteiro), consentimento_lgpd, hash_chave (CPF) | gravar: `{completo, campos_faltantes}` (nunca o valor); ler: JSON decifrado ou nulo se incompleto | 42501 (não desenvolvedor), 22023 | gravar: desenvolvedor; ler: service_role |
 | K-6 | `v_tenant_coleta_prontidao` | — | por tenant: seleções incluídas, visitante completo, campos faltantes | — | membro e desenvolvedor (RLS) |
 | K-7 | Edge Function `sync-sistema-s` (fase 2): ações `sonda`, `descobrir`, `carregar` | fonte, orçamento | contagens; grava na fila e em `coleta_externa_run` | 403 registra bloqueio | service_role (pelo tick) |
 | K-8 | Tick e jobs de cron (fase 3) | — | uma chamada por fonte ligada por minuto, respeitando `max_processos_por_tick` | — | pg_cron |
 
-K-1 a K-6 estão neste PR (migrations `20261121130000` e `20261121140000`, já aplicadas em produção, sem fonte ligada). K-7 e K-8 são as fases seguintes.
+K-1 a K-6 estão neste PR (migrations `20261121130000`, `20261121140000` e `20261121150000`, já aplicadas em produção, sem fonte ligada). K-7 e K-8 são as fases seguintes.
+
+## Evidência: o catálogo é por portal
+
+Medido em 21/11/2026 (planilha `nexor_spec_v0.2.xlsx`, aba `SistemaS_Catalogo`, e banco em somente leitura):
+
+- **O mesmo nome tem códigos diferentes por portal:** "MATERIAIS ESPORTIVOS" é a classe 20 na FIEMS e a 141 no Sesc BA; a FIEMT usa 9, 91, 172 e 191. Código de classe e de produto só vale com a fonte.
+- **Grupo não é nativo:** é o prefixo do código, com regra por portal. O catálogo do Sesc BA tem 19.756 produtos, 402 classes e 33 prefixos, com 2 prefixos sem nenhuma classe; para os outros 11 portais a regra do grupo não foi verificada.
+- **Escala:** 505.141 produtos nos 12 portais (spec 0052, fase 0, 09/11/2026).
+- **Produção não tem catálogo:** `sistema_s_catalogo_classes` e `sistema_s_catalogo_produtos` têm 0 linhas.
+- **As 123 licitações gravadas não trazem classe nem item:** `raw.lstClasses` é uma lista vazia em todas (fiesc 45, fieb 35, sescba 25, firjan 10, sescdn, sescrj, sestsenat e sfiec 2 cada). A classe e o item só vêm da chamada de detalhe do processo, que ainda não foi medida portal a portal.
+- **O objeto da contratação** vem em `sDsObjeto` e na coluna `objeto`, iguais nas 123 linhas (em 5 só muda espaço nas pontas). O formato muda por portal: FIEB e SFIEC abrem com "Aquisição de…" e "Registro de Preços para Contratação de Empresa…"; a FIESC grava o produto em caixa alta seguido de frete, prazo de pagamento, código e unidade ("… - 228 - SESI/SC - cidade"). A palavra do objeto, portanto, tem de ser medida por fonte; a medição completa fica na fase 2.
+
+Consequência: a seleção por código exige `fonte`, e o desenho da fase 2 inclui medir, por portal, o que o detalhe do processo devolve.
 
 ## Como cada restrição de coleta é respeitada
 
@@ -71,6 +84,7 @@ O desenvolvedor (admin interno, `licitagym_desenvolvedor()`) parametriza; o tena
 | CA-2 | K-3 | **Dado** 3 respostas 403 seguidas, **então** a fonte pausa por 24 h; um 200 depois da pausa vencida zera contador e pausa. | idem |
 | CA-3 | K-4 | **Dado** `palavra_objeto` sem `termo_pai`, ou `pdm` sem `codigo`, ou seleção repetida, **então** o banco recusa. | idem |
 | CA-8 | K-4 | **Dado** catálogo `sistema_s`, **quando** se grava nível `pdm` ou catálogo desconhecido, **então** o banco recusa; grupo, classe e item são aceitos e a prontidão os conta. Migration `20261121140000_sistema_s_selecao_sem_pdm.sql`. | idem |
+| CA-9 | K-4 | **Dado** catálogo `sistema_s`, **quando** se grava grupo, classe ou item sem `fonte`, ou com `fonte` que não existe em `fontes_externas`, **então** o banco recusa; palavras sem fonte são aceitas e a mesma classe em portais diferentes são seleções distintas. Migration `20261121150000_sistema_s_selecao_fonte_obrigatoria.sql`. | idem |
 | CA-4 | K-5 | **Dado** `anon` ou `authenticated`, **quando** chama `tenant_visitante_ler`, **então** sem permissão. | idem |
 | CA-5 | K-5 | **Dado** `authenticated`, **quando** lê `tenant_coleta_visitante`, **então** não vê `vault_secret_id`. | idem |
 | CA-6 | K-1 | **Dado** a migration aplicada, **então** nenhuma fonte está com `cron_ligado`. | idem |
@@ -80,7 +94,7 @@ O desenvolvedor (admin interno, `licitagym_desenvolvedor()`) parametriza; o tena
 | Fase | Entrega | Verificação |
 |---|---|---|
 | 1 | Este PR: spec, perfil por fonte, seleção e visitante por tenant | SQL de verificação; CI de migrations |
-| 2 | Edge Function `sync-sistema-s` em TypeScript: ação `sonda` (somente leitura, não grava; status HTTP e chaves do payload a partir do IP do Supabase), adaptador Paradigma, fixtures reais de sescdn e firjan | testes Deno; sonda em sescdn, firjan e sescsp |
+| 2 | Edge Function `sync-sistema-s` em TypeScript: ação `sonda` (somente leitura, não grava; status HTTP e chaves do payload a partir do IP do Supabase), adaptador Paradigma, fixtures reais de sescdn e firjan; a sonda também lê o detalhe de uma amostra de processos por fonte e devolve as chaves de classe, item e objeto, para comparar portal a portal | testes Deno; sonda em sescdn, firjan e sescsp; tabela de diferenças por portal (classe, item, objeto) |
 | 3 | Tick e jobs de cron criados desligados; saúde lê `fonte_externa_pode_coletar` | Marcelo liga sescdn e firjan, mede linhas e tempo |
 | 4 | Documentos pelo Vault (`tenant_visitante_ler`) | documento pendente com motivo quando incompleto |
 | 5 | sescsp (se a sonda mostrar o mesmo payload), médias e grandes, nessa ordem | comparação com o workflow por 7 dias |
