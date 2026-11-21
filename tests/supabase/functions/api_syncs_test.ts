@@ -1,6 +1,10 @@
 import { assertEquals } from "jsr:@std/assert@1";
 import { SYNCS } from "../../../supabase/functions/api-syncs/catalogo.ts";
-import { type ApiSyncsContext, handleRequest } from "../../../supabase/functions/api-syncs/index.ts";
+import {
+  type ApiSyncsContext,
+  handleRequest,
+  type StatusJobCron,
+} from "../../../supabase/functions/api-syncs/index.ts";
 
 const ADMIN = { id: "u1", app_metadata: { licitagym_role: "admin" } };
 const COMUM = { id: "u2", app_metadata: {} };
@@ -20,8 +24,35 @@ function ctx(over: Partial<ApiSyncsContext> = {}): ApiSyncsContext {
     segredo: () => "segredo-de-teste",
     baseUrl: () => "https://exemplo.supabase.co/functions/v1",
     fetchFn: () => Promise.resolve(new Response(JSON.stringify({ status: "ok", sync_id: "1" }), { status: 200 })),
+    lerStatusCron: () => Promise.resolve([]),
+    chamarRpc: () => Promise.resolve({ ok: true }),
     ...over,
   };
+}
+
+function linha(jobname: string, over: Partial<StatusJobCron> = {}): StatusJobCron {
+  return {
+    jobname,
+    schedule: "* * * * *",
+    ativo: true,
+    run_id: 1,
+    status: "succeeded",
+    inicio: "2026-11-19T18:00:00Z",
+    fim: "2026-11-19T18:00:01Z",
+    mensagem: null,
+    ...over,
+  };
+}
+
+/** Leitor do pg_cron falso: devolve só as linhas dos jobs pedidos. */
+function statusDe(linhas: StatusJobCron[]): ApiSyncsContext["lerStatusCron"] {
+  return (jobs) => Promise.resolve(linhas.filter((l) => jobs.includes(l.jobname)));
+}
+
+async function listar(c: ApiSyncsContext) {
+  const body = await (await handleRequest(post({ action: "listar" }), c)).json();
+  const por = (slug: string) => body.syncs.find((s: { slug: string }) => s.slug === slug);
+  return { body, por };
 }
 
 Deno.test("api-syncs: sem credencial 401 e usuário comum 403", async () => {
@@ -30,19 +61,29 @@ Deno.test("api-syncs: sem credencial 401 e usuário comum 403", async () => {
 });
 
 Deno.test("api-syncs: listar separa cron de quem nunca entrou", async () => {
-  const body = await (await handleRequest(post({ action: "listar" }), ctx())).json();
-  const portal = body.syncs.find((s: { slug: string }) => s.slug === "sync-portal-compras");
-  const editais = body.syncs.find((s: { slug: string }) => s.slug === "sync-pncp-contratacoes-editais");
-  const coletor = body.syncs.find((s: { slug: string }) => s.slug === "coletor-pncp");
-  assertEquals(portal.cron, "Todo dia às 08:00.");
-  assertEquals(portal.disparavel, true);
-  assertEquals(editais.cron, null);
-  // coletor Python agora dispara pelo GitHub Actions (workflow coletor-pncp.yml)
-  assertEquals(coletor.disparavel, true);
-  assertEquals(coletor.github_workflow, "coletor-pncp.yml");
-  assertEquals(coletor.cron?.includes("GitHub Actions"), true);
+  const { body, por } = await listar(ctx());
+  assertEquals(por("sync-portal-compras").cron, "Todo dia às 08:00.");
+  assertEquals(por("sync-portal-compras").disparavel, true);
+  assertEquals(por("sync-pncp-contratacoes-editais").cron, null);
   assertEquals(body.syncs.length, SYNCS.length);
   assertEquals(JSON.stringify(body).includes("segredo-de-teste"), false);
+});
+
+Deno.test("api-syncs: coletores PNCP, preços e PGC rodam no Supabase, sem GitHub Actions", async () => {
+  const { por } = await listar(ctx());
+  for (const slug of ["coletor-pncp", "coletor-precos", "coletor-pgc"]) {
+    const item = por(slug);
+    assertEquals(item.disparavel, true, slug);
+    assertEquals(typeof item.rpc?.nome, "string", slug);
+    assertEquals(Array.isArray(item.cron_jobs) && item.cron_jobs.length > 0, true, slug);
+    assertEquals("github_workflow" in item, false, slug);
+    assertEquals("refazer_cron" in item, false, slug);
+    assertEquals(String(item.cron).includes("GitHub"), false, slug);
+  }
+  assertEquals(por("coletor-pgc").rpc.nome, "pgc_sync_planejar");
+  assertEquals(por("coletor-pgc").cron_jobs, ["pgc-sync-planejar", "pgc-sync-tick"]);
+  assertEquals(por("coletor-pncp").rpc, { nome: "licext_publicar_de_pncp_busca", args: { p_dias: 10 } });
+  assertEquals(por("coletor-precos").rpc, { nome: "precos_sync_planejar", args: { p_dias: 60 } });
 });
 
 Deno.test("api-syncs: rodar encaminha o corpo do catálogo e não devolve o segredo", async () => {
@@ -78,13 +119,12 @@ Deno.test("api-syncs: sync que responde erro ainda devolve o corpo e o status", 
   assertEquals(JSON.stringify(body).includes("segredo-de-teste"), false);
 });
 
-Deno.test("api-syncs: sync desconhecido e sync sem função nem workflow não disparam", async () => {
+Deno.test("api-syncs: sync desconhecido não dispara, e todo item disparavel tem função ou rpc", async () => {
   let chamou = false;
   const c = ctx({ fetchFn: () => { chamou = true; return Promise.resolve(new Response("{}")); } });
   assertEquals((await handleRequest(post({ action: "rodar", sync: "nao-existe" }), c)).status, 400);
   assertEquals(chamou, false);
-  // o catálogo não pode ter item disparável sem destino (função ou workflow)
-  assertEquals(SYNCS.every((s) => !s.disparavel || Boolean(s.funcao) || Boolean(s.github_workflow)), true);
+  assertEquals(SYNCS.every((s) => !s.disparavel || Boolean(s.funcao) || Boolean(s.rpc)), true);
 });
 
 // Syncs presos por trava de ambiente (PNCP_NATIONAL_SYNC_ENABLED, IRP_SYNC_ENABLED) ou que dependem de um sync
@@ -128,376 +168,132 @@ Deno.test("CA-6 (spec 0023): rodar manda origem manual no corpo da função disp
   assertEquals(corpo.limite, 40);
 });
 
-Deno.test("api-syncs: rodar coletor-pncp dispara o workflow no GitHub com rapido=true e não devolve o token", async () => {
-  let url = "";
-  let authorization = "";
-  let enviado = "";
-  const c = ctx({
-    githubToken: () => "github-token-de-teste",
-    githubRepo: () => "dono/repo",
-    fetchFn: (input, init) => {
-      url = String(input);
-      authorization = new Headers(init?.headers).get("authorization") ?? "";
-      enviado = String(init?.body);
-      return Promise.resolve(new Response(null, { status: 204 }));
-    },
-  });
-  const res = await handleRequest(post({ action: "rodar", sync: "coletor-pncp" }), c);
-  const body = await res.json();
-  assertEquals(res.status, 200);
-  assertEquals(url, "https://api.github.com/repos/dono/repo/actions/workflows/coletor-pncp.yml/dispatches");
-  assertEquals(authorization, "Bearer github-token-de-teste");
-  assertEquals(JSON.parse(enviado), { ref: "main", inputs: { modo: "leads", dry_run: "false", rapido: "true" } });
-  assertEquals(body.http, 204);
-  assertEquals(body.resposta.status, "disparado");
-  assertEquals(JSON.stringify(body).includes("github-token-de-teste"), false);
-});
-
-Deno.test("api-syncs: coletor-pncp sem GITHUB_ACTIONS_TOKEN responde 500 sem chamar o GitHub", async () => {
-  let chamou = false;
-  const c = ctx({ githubToken: () => null, fetchFn: () => { chamou = true; return Promise.resolve(new Response(null, { status: 204 })); } });
-  const res = await handleRequest(post({ action: "rodar", sync: "coletor-pncp" }), c);
-  assertEquals(res.status, 500);
-  assertEquals(chamou, false);
-});
-
-Deno.test("api-syncs: GitHub recusa (422) volta como http da resposta, sem segredo", async () => {
-  const c = ctx({
-    githubToken: () => "github-token-de-teste",
-    fetchFn: () => Promise.resolve(new Response(JSON.stringify({ message: "Unexpected inputs provided" }), { status: 422 })),
-  });
-  const res = await handleRequest(post({ action: "rodar", sync: "coletor-pncp" }), c);
-  const body = await res.json();
-  assertEquals(res.status, 200);
-  assertEquals(body.http, 422);
-  assertEquals(body.resposta.message, "Unexpected inputs provided");
-  assertEquals(JSON.stringify(body).includes("github-token-de-teste"), false);
-});
-
-Deno.test("api-syncs: GITHUB_ACTIONS_REPO inválido responde 500 sem cair no repositório padrão", async () => {
-  let chamou = false;
-  const c = ctx({
-    githubToken: () => "github-token-de-teste",
-    githubRepo: () => null,
-    fetchFn: () => { chamou = true; return Promise.resolve(new Response(null, { status: 204 })); },
-  });
-  const res = await handleRequest(post({ action: "rodar", sync: "coletor-pncp" }), c);
-  assertEquals(res.status, 500);
-  assertEquals(chamou, false);
-});
-
-// ---- spec 0025: refazer as etapas que falharam no cron do Coletor PNCP ----
-
-type RunGh = {
-  id: number;
-  event: string;
-  status: string;
-  conclusion: string | null;
-  run_attempt: number;
-  created_at: string;
-  html_url: string;
-};
-
-function runGh(over: Partial<RunGh> = {}): RunGh {
-  return {
-    id: 38746383473,
-    event: "schedule",
-    status: "completed",
-    conclusion: "cancelled",
-    run_attempt: 1,
-    created_at: "2026-10-15T13:52:12Z",
-    html_url: "https://github.com/dono/repo/actions/runs/38746383473",
-    ...over,
-  };
-}
-
-const JOBS_GH = {
-  total_count: 2,
-  jobs: [
-    { name: "plano", status: "completed", conclusion: "success", started_at: "2026-10-15T13:52:15Z", completed_at: "2026-10-15T13:52:20Z" },
-    { name: "coletar (monitorar)", status: "completed", conclusion: "cancelled", started_at: "2026-10-15T13:52:21Z", completed_at: "2026-10-15T18:52:40Z" },
-  ],
-};
-
-/** GitHub falso: responde por URL e anota cada chamada. */
-function github(
-  opts: { agendado?: RunGh | null; recentes?: RunGh[]; ativosAntigos?: RunGh[]; falha?: number; rerun?: number; foraDoFormato?: boolean } = {},
-) {
-  const chamadas: { url: string; method: string; authorization: string }[] = [];
-  const agendado = opts.agendado === undefined ? runGh() : opts.agendado;
-  const fetchFn: typeof fetch = (input, init) => {
-    const url = String(input);
-    const method = init?.method ?? "GET";
-    chamadas.push({ url, method, authorization: new Headers(init?.headers).get("authorization") ?? "" });
-    const json = (b: unknown, status = 200) => Promise.resolve(new Response(JSON.stringify(b), { status }));
-    if (opts.falha) return json({ message: "Server Error" }, opts.falha);
-    if (url.includes("/rerun-failed-jobs")) {
-      const st = opts.rerun ?? 201;
-      return st === 201 ? Promise.resolve(new Response(null, { status: 201 })) : json({ message: "Cannot rerun" }, st);
-    }
-    if (url.includes("/actions/runs/") && url.includes("/jobs")) return json(JOBS_GH);
-    const ehWorkflowRuns = url.includes("/workflows/coletor-pncp.yml/runs") ||
-      url.includes("/workflows/coletor-precos.yml/runs");
-    if (ehWorkflowRuns && url.includes("event=schedule")) {
-      return json({ total_count: agendado ? 1 : 0, workflow_runs: agendado ? [agendado] : [] });
-    }
-    if (opts.foraDoFormato && ehWorkflowRuns) return json({ total_count: 0 });
-    const filtro = /[?&]status=([a-z_]+)/.exec(url)?.[1];
-    if (ehWorkflowRuns && filtro) {
-      const todos = [...(opts.recentes ?? []), ...(opts.ativosAntigos ?? [])];
-      const achados = todos.filter((r) => r.status === filtro);
-      return json({ total_count: achados.length, workflow_runs: achados });
-    }
-    if (ehWorkflowRuns) {
-      const recentes = opts.recentes ?? (agendado ? [agendado] : []);
-      return json({ total_count: recentes.length, workflow_runs: recentes });
-    }
-    return json({ message: "Not Found" }, 404);
-  };
-  return { chamadas, fetchFn };
-}
-
-function ctxGh(gh: ReturnType<typeof github>, over: Partial<ApiSyncsContext> = {}): ApiSyncsContext {
-  // relógio fixo: a janela de 30 dias do GitHub não pode depender do dia em que o teste roda
-  return ctx({
-    githubToken: () => "github-token-de-teste",
-    githubRepo: () => "dono/repo",
-    fetchFn: gh.fetchFn,
-    agora: () => new Date("2026-10-16T16:00:00Z"),
-    ...over,
-  });
-}
-
-async function coletorListado(c: ApiSyncsContext) {
-  const body = await (await handleRequest(post({ action: "listar" }), c)).json();
-  return { body, coletor: body.syncs.find((s: { slug: string }) => s.slug === "coletor-pncp") };
-}
-
-for (const conclusion of ["failure", "cancelled", "timed_out"]) {
-  Deno.test(`CA-1: último cron agendado em ${conclusion} libera refazer e traz as etapas como o GitHub devolveu`, async () => {
-    const gh = github({ agendado: runGh({ conclusion }) });
-    const { coletor } = await coletorListado(ctxGh(gh));
-    assertEquals(coletor.pode_refazer, true);
-    assertEquals(coletor.ultimo_cron?.run_id, 38746383473);
-    assertEquals(coletor.ultimo_cron?.conclusion, conclusion);
-    assertEquals(coletor.ultimo_cron?.run_attempt, 1);
-    assertEquals(coletor.ultimo_cron?.created_at, "2026-10-15T13:52:12Z");
-    assertEquals(coletor.ultimo_cron?.etapas, [
-      { nome: "plano", status: "completed", conclusion: "success", started_at: "2026-10-15T13:52:15Z", completed_at: "2026-10-15T13:52:20Z" },
-      { nome: "coletar (monitorar)", status: "completed", conclusion: "cancelled", started_at: "2026-10-15T13:52:21Z", completed_at: "2026-10-15T18:52:40Z" },
-    ]);
-    assertEquals(coletor.erro_ultimo_cron, null);
-    assertEquals(gh.chamadas.some((c) => c.url.includes("event=schedule")), true);
-  });
-}
-
-Deno.test("CA-2: cron em success não libera refazer, e refazer responde 409 sem rerun", async () => {
-  const gh = github({ agendado: runGh({ conclusion: "success" }) });
-  const { coletor } = await coletorListado(ctxGh(gh));
-  assertEquals(coletor.pode_refazer, false);
-  const res = await handleRequest(post({ action: "refazer", sync: "coletor-pncp" }), ctxGh(gh));
-  assertEquals(res.status, 409);
-  assertEquals(gh.chamadas.some((c) => c.url.includes("rerun")), false);
-});
-
-Deno.test("CA-2: run do workflow na fila ou rodando bloqueia refazer (409), mesmo com o cron em falha", async () => {
-  for (const status of ["queued", "in_progress"]) {
-    const falhou = runGh({ conclusion: "failure" });
-    const manual = runGh({ id: 99, event: "workflow_dispatch", status, conclusion: null });
-    const gh = github({ agendado: falhou, recentes: [manual, falhou] });
-    const { coletor } = await coletorListado(ctxGh(gh));
-    assertEquals(coletor.pode_refazer, false);
-    assertEquals(typeof coletor.motivo_refazer, "string");
-    const res = await handleRequest(post({ action: "refazer", sync: "coletor-pncp" }), ctxGh(gh));
-    assertEquals(res.status, 409);
-    assertEquals(gh.chamadas.some((c) => c.url.includes("rerun")), false);
+Deno.test("api-syncs: rodar coletor com rpc chama a função SQL do catálogo, sem HTTP externo", async () => {
+  for (const slug of ["coletor-pncp", "coletor-precos", "coletor-pgc"]) {
+    const item = SYNCS.find((s) => s.slug === slug);
+    let rpc: { nome: string; args: Record<string, unknown> } | null = null;
+    let fetchChamado = false;
+    const c = ctx({
+      chamarRpc: (nome, args) => {
+        rpc = { nome, args };
+        return Promise.resolve([{ inseridos: 1 }]);
+      },
+      fetchFn: () => { fetchChamado = true; return Promise.resolve(new Response("{}")); },
+    });
+    const res = await handleRequest(post({ action: "rodar", sync: slug }), c);
+    const body = await res.json();
+    assertEquals(res.status, 200, slug);
+    assertEquals(rpc, item?.rpc, slug);
+    assertEquals(body.http, 200, slug);
+    assertEquals(body.resposta, [{ inseridos: 1 }], slug);
+    assertEquals(fetchChamado, false, slug);
   }
 });
 
-Deno.test("CA-2: o próprio cron ainda rodando não libera refazer", async () => {
-  const gh = github({ agendado: runGh({ status: "in_progress", conclusion: null }) });
-  const { coletor } = await coletorListado(ctxGh(gh));
-  assertEquals(coletor.pode_refazer, false);
-  assertEquals((await handleRequest(post({ action: "refazer", sync: "coletor-pncp" }), ctxGh(gh))).status, 409);
+Deno.test("api-syncs: falha da função SQL responde 502 sem vazar a mensagem do banco", async () => {
+  const c = ctx({ chamarRpc: () => Promise.reject(new Error("permission denied for function x")) });
+  const res = await handleRequest(post({ action: "rodar", sync: "coletor-pgc" }), c);
+  const texto = await res.text();
+  assertEquals(res.status, 502);
+  assertEquals(texto.includes("permission denied"), false);
 });
 
-Deno.test("CA-2: run criado há 30 dias ou mais não libera refazer (limite do GitHub)", async () => {
-  const gh = github({ agendado: runGh({ conclusion: "failure", created_at: "2026-09-16T16:00:00Z" }) });
-  const { coletor } = await coletorListado(ctxGh(gh));
-  assertEquals(coletor.pode_refazer, false);
-  assertEquals(typeof coletor.motivo_refazer, "string");
-  assertEquals((await handleRequest(post({ action: "refazer", sync: "coletor-pncp" }), ctxGh(gh))).status, 409);
-  assertEquals(gh.chamadas.some((c) => c.url.includes("rerun")), false);
-  // um pouco menos de 30 dias ainda libera
-  const dentro = github({ agendado: runGh({ conclusion: "failure", created_at: "2026-09-16T16:00:01Z" }) });
-  assertEquals((await coletorListado(ctxGh(dentro))).coletor.pode_refazer, true);
-});
-
-Deno.test("CA-2: run que já passou de 50 re-runs não libera refazer (limite do GitHub)", async () => {
-  const esgotado = github({ agendado: runGh({ conclusion: "failure", run_attempt: 51 }) });
-  const { coletor } = await coletorListado(ctxGh(esgotado));
-  assertEquals(coletor.pode_refazer, false);
-  assertEquals((await handleRequest(post({ action: "refazer", sync: "coletor-pncp" }), ctxGh(esgotado))).status, 409);
-  assertEquals(esgotado.chamadas.some((c) => c.url.includes("rerun")), false);
-  const ultimo = github({ agendado: runGh({ conclusion: "failure", run_attempt: 50 }) });
-  assertEquals((await coletorListado(ctxGh(ultimo))).coletor.pode_refazer, true);
-});
-
-Deno.test("CA-2: run antigo refeito no GitHub e ainda rodando (fora dos 30 recentes) também bloqueia", async () => {
-  const falhou = runGh({ conclusion: "failure" });
-  const antigoRodando = runGh({ id: 7, event: "schedule", status: "in_progress", conclusion: null, created_at: "2026-10-01T09:00:00Z" });
-  const gh = github({ agendado: falhou, recentes: [falhou], ativosAntigos: [antigoRodando] });
-  const { coletor } = await coletorListado(ctxGh(gh));
-  assertEquals(coletor.pode_refazer, false);
-  assertEquals((await handleRequest(post({ action: "refazer", sync: "coletor-pncp" }), ctxGh(gh))).status, 409);
-});
-
-for (const status of ["requested", "waiting", "pending"]) {
-  Deno.test(`CA-2: run antigo fora dos 30 recentes em ${status} também bloqueia`, async () => {
-    const falhou = runGh({ conclusion: "failure" });
-    const antigo = runGh({ id: 8, event: "schedule", status, conclusion: null, created_at: "2026-10-01T09:00:00Z" });
-    const gh = github({ agendado: falhou, recentes: [falhou], ativosAntigos: [antigo] });
-    const { coletor } = await coletorListado(ctxGh(gh));
-    assertEquals(coletor.pode_refazer, false);
-    assertEquals((await handleRequest(post({ action: "refazer", sync: "coletor-pncp" }), ctxGh(gh))).status, 409);
+Deno.test("api-syncs: último cron vem do pg_cron (jobs ok → success, run mais recente)", async () => {
+  const c = ctx({
+    lerStatusCron: statusDe([
+      linha("pgc-sync-planejar", { run_id: 10, inicio: "2026-11-19T12:10:00Z" }),
+      linha("pgc-sync-tick", { run_id: 11, inicio: "2026-11-19T18:00:00Z" }),
+    ]),
   });
-}
-
-Deno.test("CA-4: GitHub 200 com lista fora do formato vira erro, não 'nada na fila'", async () => {
-  const gh = github({ agendado: runGh({ conclusion: "failure" }), foraDoFormato: true });
-  const { coletor } = await coletorListado(ctxGh(gh));
-  assertEquals(coletor.pode_refazer, false);
-  assertEquals(coletor.ultimo_cron, null);
-  assertEquals(typeof coletor.erro_ultimo_cron, "string");
-  const res = await handleRequest(post({ action: "refazer", sync: "coletor-pncp" }), ctxGh(gh));
-  assertEquals(res.status, 502);
-  assertEquals(gh.chamadas.some((c) => c.url.includes("rerun")), false);
+  const { por } = await listar(c);
+  const pgc = por("coletor-pgc");
+  assertEquals(pgc.ultimo_cron.run_id, 11);
+  assertEquals(pgc.ultimo_cron.status, "completed");
+  assertEquals(pgc.ultimo_cron.conclusion, "success");
+  assertEquals(pgc.ultimo_cron.created_at, "2026-11-19T18:00:00Z");
+  assertEquals(pgc.ultimo_cron.html_url, null);
+  assertEquals(pgc.ultimo_cron.etapas.map((e: { nome: string }) => e.nome), ["pgc-sync-planejar", "pgc-sync-tick"]);
+  assertEquals(pgc.pode_refazer, false);
+  assertEquals(pgc.erro_ultimo_cron, null);
 });
 
-Deno.test("CA-3: refazer faz um único POST rerun-failed-jobs no run que o servidor achou, ignorando run_id do corpo", async () => {
-  const gh = github({ agendado: runGh({ conclusion: "failure" }) });
-  const res = await handleRequest(post({ action: "refazer", sync: "coletor-pncp", run_id: 1 }), ctxGh(gh));
-  const body = await res.json();
-  assertEquals(res.status, 200);
-  const posts = gh.chamadas.filter((c) => c.method === "POST");
-  assertEquals(posts.length, 1);
-  assertEquals(posts[0]?.url, "https://api.github.com/repos/dono/repo/actions/runs/38746383473/rerun-failed-jobs");
-  assertEquals(gh.chamadas.some((c) => c.url.includes("/dispatches")), false);
-  assertEquals(body.resposta?.status, "refeito");
-  assertEquals(body.resposta?.run_id, 38746383473);
-  assertEquals(body.resposta?.acompanhe, "https://github.com/dono/repo/actions/runs/38746383473");
+Deno.test("api-syncs: job que falhou vira failure e mostra a mensagem do pg_cron", async () => {
+  const c = ctx({
+    lerStatusCron: statusDe([
+      linha("pgc-sync-planejar"),
+      linha("pgc-sync-tick", { status: "failed", mensagem: "relation x does not exist" }),
+    ]),
+  });
+  const { por } = await listar(c);
+  const pgc = por("coletor-pgc");
+  assertEquals(pgc.ultimo_cron.conclusion, "failure");
+  const etapa = pgc.ultimo_cron.etapas.find((e: { nome: string }) => e.nome.startsWith("pgc-sync-tick"));
+  assertEquals(etapa.nome, "pgc-sync-tick: relation x does not exist");
+  assertEquals(etapa.conclusion, "failure");
 });
 
-Deno.test("CA-3: GitHub recusa o rerun → erro, nunca 'refeito'", async () => {
-  const gh = github({ agendado: runGh({ conclusion: "cancelled" }), rerun: 403 });
-  const res = await handleRequest(post({ action: "refazer", sync: "coletor-pncp" }), ctxGh(gh));
-  const body = await res.json();
-  assertEquals(res.status, 502);
-  assertEquals(body.http, 403);
-  // a tela recebe o motivo do GitHub na mensagem de erro
-  assertEquals(String(body.error).includes("403"), true);
-  assertEquals(String(body.error).includes("Cannot rerun"), true);
-  assertEquals(JSON.stringify(body).includes("refeito"), false);
-  assertEquals(JSON.stringify(body).includes("github-token-de-teste"), false);
+Deno.test("api-syncs: job rodando deixa o último cron em andamento", async () => {
+  const c = ctx({
+    lerStatusCron: statusDe([
+      linha("pgc-sync-planejar"),
+      linha("pgc-sync-tick", { status: "running", fim: null }),
+    ]),
+  });
+  const { por } = await listar(c);
+  assertEquals(por("coletor-pgc").ultimo_cron.status, "in_progress");
+  assertEquals(por("coletor-pgc").ultimo_cron.conclusion, null);
 });
 
-Deno.test("CA-4: leitura do GitHub falha → ultimo_cron null, pode_refazer false, erro aparece e os outros syncs seguem", async () => {
-  for (const falha of [500, 401]) {
-    const gh = github({ falha });
-    const { body, coletor } = await coletorListado(ctxGh(gh));
-    assertEquals(coletor.ultimo_cron, null);
-    assertEquals(coletor.pode_refazer, false);
-    assertEquals(typeof coletor.erro_ultimo_cron, "string");
-    assertEquals(String(coletor.erro_ultimo_cron).length > 0, true);
-    assertEquals(body.syncs.length, SYNCS.length);
-    assertEquals(JSON.stringify(body).includes("github-token-de-teste"), false);
-  }
+Deno.test("api-syncs: job sem agendamento aparece como não agendado, sem derrubar o resto", async () => {
+  const c = ctx({ lerStatusCron: statusDe([linha("pgc-sync-tick")]) });
+  const { por } = await listar(c);
+  const nomes = por("coletor-pgc").ultimo_cron.etapas.map((e: { nome: string }) => e.nome);
+  assertEquals(nomes, ["pgc-sync-planejar (não agendado)", "pgc-sync-tick"]);
 });
 
-Deno.test("CA-4: timeout na leitura do GitHub também vira erro, não cron ok", async () => {
-  const c = ctxGh(github(), { fetchFn: () => Promise.reject(new DOMException("timeout", "TimeoutError")) });
-  const { body, coletor } = await coletorListado(c);
-  assertEquals(coletor.ultimo_cron, null);
-  assertEquals(coletor.pode_refazer, false);
-  assertEquals(typeof coletor.erro_ultimo_cron, "string");
+Deno.test("api-syncs: job desativado e job que ainda não rodou não contam como falha", async () => {
+  const c = ctx({
+    lerStatusCron: statusDe([
+      linha("pgc-sync-planejar", { ativo: false }),
+      linha("pgc-sync-tick", { run_id: null, status: null, inicio: null, fim: null }),
+    ]),
+  });
+  const { por } = await listar(c);
+  const pgc = por("coletor-pgc");
+  // o planejar desativado ainda tem run e início; o tick nunca rodou
+  assertEquals(pgc.ultimo_cron.conclusion, "success");
+  assertEquals(pgc.ultimo_cron.etapas.map((e: { nome: string }) => e.nome), ["pgc-sync-planejar (desativado)", "pgc-sync-tick (ainda não rodou)"]);
+});
+
+Deno.test("api-syncs: nenhum job rodou ainda → ultimo_cron null com motivo", async () => {
+  const { por } = await listar(ctx({ lerStatusCron: () => Promise.resolve([]) }));
+  const pgc = por("coletor-pgc");
+  assertEquals(pgc.ultimo_cron, null);
+  assertEquals(pgc.motivo_refazer, "Nenhum job agendado rodou ainda.");
+  assertEquals(pgc.erro_ultimo_cron, null);
+});
+
+Deno.test("api-syncs: falha ao ler o pg_cron vira erro do item e os outros syncs seguem", async () => {
+  const c = ctx({ lerStatusCron: () => Promise.reject(new Error("boom interno")) });
+  const { body, por } = await listar(c);
+  const pgc = por("coletor-pgc");
+  assertEquals(pgc.ultimo_cron, null);
+  assertEquals(pgc.pode_refazer, false);
+  assertEquals(pgc.erro_ultimo_cron, "Falha ao ler o status dos jobs no pg_cron.");
+  assertEquals(JSON.stringify(body).includes("boom interno"), false);
   assertEquals(body.syncs.length, SYNCS.length);
+  assertEquals(por("sync-portal-compras").cron, "Todo dia às 08:00.");
 });
 
-Deno.test("CA-5: refazer por usuário sem papel admin 403, pelo cron 403 e sem token 401, sem chamar o GitHub", async () => {
-  const gh = github({ agendado: runGh({ conclusion: "failure" }) });
-  const r = () => post({ action: "refazer", sync: "coletor-pncp" });
-  assertEquals((await handleRequest(r(), ctxGh(gh, { getUser: () => Promise.resolve(COMUM) }))).status, 403);
-  assertEquals((await handleRequest(r(), ctxGh(gh, { isCron: () => true }))).status, 403);
-  assertEquals((await handleRequest(r(), ctxGh(gh, { getUser: () => Promise.resolve(null) }))).status, 401);
-  assertEquals(gh.chamadas.length, 0);
-});
-
-Deno.test("CA-6: refazer sem GITHUB_ACTIONS_TOKEN responde 500 com a mensagem e não chama o GitHub", async () => {
-  const gh = github({ agendado: runGh({ conclusion: "failure" }) });
-  const res = await handleRequest(post({ action: "refazer", sync: "coletor-pncp" }), ctxGh(gh, { githubToken: () => null }));
-  const body = await res.json();
-  assertEquals(res.status, 500);
-  assertEquals(body.error, "Disparo do coletor não configurado (GITHUB_ACTIONS_TOKEN).");
-  assertEquals(gh.chamadas.length, 0);
-});
-
-Deno.test("CA-6: o token nunca aparece no listar nem no refazer, mesmo com erro do GitHub", async () => {
-  const cenarios = [
-    github({ agendado: runGh({ conclusion: "failure" }) }),
-    github({ falha: 500 }),
-    github({ agendado: runGh({ conclusion: "failure" }), rerun: 422 }),
-  ];
-  for (const gh of cenarios) {
-    const l = await (await handleRequest(post({ action: "listar" }), ctxGh(gh))).text();
-    const r = await (await handleRequest(post({ action: "refazer", sync: "coletor-pncp" }), ctxGh(gh))).text();
-    assertEquals(l.includes("github-token-de-teste"), false);
-    assertEquals(r.includes("github-token-de-teste"), false);
-    assertEquals(gh.chamadas.length > 0, true);
-    assertEquals(gh.chamadas.every((c) => c.authorization === "Bearer github-token-de-teste"), true);
-  }
-});
-
-Deno.test("CA-7: rodar coletor-pncp continua um workflow_dispatch rápido, sem rerun", async () => {
-  let enviado = "";
-  let url = "";
-  const c = ctxGh(github({ agendado: runGh({ conclusion: "failure" }) }), {
-    fetchFn: (input, init) => {
-      url = String(input);
-      enviado = String(init?.body);
-      return Promise.resolve(new Response(null, { status: 204 }));
-    },
+Deno.test("api-syncs: refazer não existe mais (era do GitHub Actions) e responde 400 sem chamar nada", async () => {
+  let chamou = false;
+  const c = ctx({
+    fetchFn: () => { chamou = true; return Promise.resolve(new Response("{}")); },
+    chamarRpc: () => { chamou = true; return Promise.resolve(null); },
   });
-  const res = await handleRequest(post({ action: "rodar", sync: "coletor-pncp" }), c);
-  assertEquals(res.status, 200);
-  assertEquals(url, "https://api.github.com/repos/dono/repo/actions/workflows/coletor-pncp.yml/dispatches");
-  assertEquals(JSON.parse(enviado), { ref: "main", inputs: { modo: "leads", dry_run: "false", rapido: "true" } });
-});
-
-Deno.test("api-syncs: coletor-precos segue a mesma estrutura do coletor-pncp (listar, rodar e refazer)", async () => {
-  const gh = github({ agendado: runGh({ conclusion: "failure" }) });
-  const listRes = await (await handleRequest(post({ action: "listar" }), ctxGh(gh))).json();
-  const precos = listRes.syncs.find((s: { slug: string }) => s.slug === "coletor-precos");
-  assertEquals(precos.disparavel, true);
-  assertEquals(precos.github_workflow, "coletor-precos.yml");
-  assertEquals(precos.pode_refazer, true);
-
-  const refRes = await handleRequest(post({ action: "refazer", sync: "coletor-precos" }), ctxGh(gh));
-  assertEquals(refRes.status, 200);
-  assertEquals((await refRes.json()).resposta?.status, "refeito");
-
-  let url = "";
-  let enviado = "";
-  const cRodar = ctxGh(gh, {
-    fetchFn: (input, init) => {
-      url = String(input);
-      enviado = String(init?.body);
-      return Promise.resolve(new Response(null, { status: 204 }));
-    },
-  });
-  const rodRes = await handleRequest(post({ action: "rodar", sync: "coletor-precos" }), cRodar);
-  assertEquals(rodRes.status, 200);
-  assertEquals(url, "https://api.github.com/repos/dono/repo/actions/workflows/coletor-precos.yml/dispatches");
-  assertEquals(JSON.parse(enviado), { ref: "main", inputs: { modo: "todos", dry_run: "false" } });
+  const res = await handleRequest(post({ action: "refazer", sync: "coletor-pncp" }), c);
+  assertEquals(res.status, 400);
+  assertEquals(chamou, false);
 });
 
 Deno.test("CA-4 (spec 0044): a legislação sai do catálogo e o disparo dela é slug desconhecido", async () => {
