@@ -1,4 +1,4 @@
-/** Agenda em horário de Brasília, conferida no pg_cron de produção em 13/10/2026. */
+/** Agenda em horário de Brasília, conferida no pg_cron de produção em 13/10/2026 (coletores migrados para o Supabase em 19/11/2026). */
 
 export interface SyncCatalogo {
   slug: string;
@@ -8,13 +8,13 @@ export interface SyncCatalogo {
   /** null = nunca houve job no pg_cron. */
   cron: string | null;
   corpo: Record<string, unknown>;
-  /** Disparável daqui: Edge Function (`funcao`) ou workflow do GitHub Actions (`github_workflow`). */
+  /** Disparável daqui: Edge Function (`funcao`) ou função SQL (`rpc`). */
   disparavel: boolean;
   aviso: string | null;
-  /** Arquivo do workflow em .github/workflows (ex.: coletor-pncp.yml): `rodar` dispara workflow_dispatch com `corpo` como inputs. */
-  github_workflow?: string;
-  /** Spec 0025: o `listar` traz o último run agendado do workflow e a ação `refazer` refaz as etapas que falharam. */
-  refazer_cron?: boolean;
+  /** Função SQL chamada pelo "Rodar agora" (service role). Tudo dentro do Supabase. */
+  rpc?: { nome: string; args: Record<string, unknown> };
+  /** Jobs do pg_cron cujo último resultado o `listar` mostra como "último cron". */
+  cron_jobs?: string[];
 }
 
 /** Syncs nacionais do PNCP: a trava de escopo (_shared/pncp/licitagym-scope-gate.ts) responde 423 sem o override
@@ -28,28 +28,44 @@ export const SYNCS: SyncCatalogo[] = [
   {
     slug: "coletor-pncp",
     funcao: null,
-    github_workflow: "coletor-pncp.yml",
-    refazer_cron: true,
     titulo: "Coletor PNCP de oportunidades",
-    faz: "Grava licitacoes_externas, a lista do dashboard.",
-    cron: "Todo dia às 06:00, no GitHub Actions (coleta completa: leads, monitorar e recoleta).",
-    // inputs do workflow_dispatch são sempre texto
-    corpo: { modo: "leads", dry_run: "false", rapido: "true" },
+    faz: "Grava licitacoes_externas, a lista do dashboard, a partir da busca do PNCP espelhada no banco.",
+    cron: "Busca do PNCP: planejamento diário às 06:00 e coleta a cada minuto. Publicação em licitacoes_externas: de hora em hora (minuto 20). Tudo no pg_cron do Supabase.",
+    corpo: {},
+    rpc: { nome: "licext_publicar_de_pncp_busca", args: { p_dias: 10 } },
+    cron_jobs: ["cg-sync-pncp-planejar", "cg-sync-pncp-tick", "cg-sync-pncp-cruzar", "licext-publicar-pncp"],
     disparavel: true,
-    aviso: "Rodar agora dispara o workflow no GitHub só com os 12 termos principais (rápido). Acompanhe em Actions › Coletor PNCP.",
+    aviso: "Rodar agora publica em licitacoes_externas o que a busca do PNCP já trouxe nos últimos 10 dias. Não depende do GitHub.",
   },
   {
     slug: "coletor-precos",
     funcao: null,
-    github_workflow: "coletor-precos.yml",
-    refazer_cron: true,
-    titulo: "Coletor de preços (Compras.gov + PNCP)",
-    faz: "Grava preços praticados (Pesquisa de Preço), descrição detalhada e itens/links de contratação via API PNCP.",
-    cron: "Segunda e quinta às 07:00, no GitHub Actions (catálogo, detalhe e contratação PNCP).",
-    // inputs do workflow_dispatch são sempre texto
-    corpo: { modo: "todos", dry_run: "false" },
+    titulo: "Coletor de preços (Compras.gov)",
+    faz: "Grava preços praticados (Pesquisa de Preço) e o estimado das contratações a partir do Compras.gov, direto no banco.",
+    cron: "Planejamento diário às 06:15. Coleta a cada minuto e ponte do estimado a cada 30 minutos. Tudo no pg_cron do Supabase, só os últimos 24 meses.",
+    corpo: {},
+    rpc: { nome: "precos_sync_planejar", args: { p_dias: 60 } },
+    cron_jobs: [
+      "precos-sync-planejar",
+      "precos-sync-tick",
+      "cg-sync-compras-id-planejar",
+      "cg-sync-compras-id-tick",
+      "precos-sincronizar-de-cg",
+    ],
     disparavel: true,
-    aviso: "Rodar agora dispara o workflow no GitHub com as 3 etapas em sequência. Acompanhe em Actions › Coletor de Preços.",
+    aviso: "Rodar agora enfileira a janela de 60 dias por PDM; a coleta roda sozinha nos próximos minutos. Não depende do GitHub nem da API de preços do PNCP.",
+  },
+  {
+    slug: "coletor-pgc",
+    funcao: null,
+    titulo: "PGC (Planejamento do Compras.gov)",
+    faz: "Atualiza os itens do PGC (pca_pgc_itens) das classes 7830 e 7220, do ano atual e do próximo, direto do Compras.gov Dados Abertos.",
+    cron: "Planejamento diário às 06:10. Coleta a cada minuto. Tudo no pg_cron do Supabase.",
+    corpo: {},
+    rpc: { nome: "pgc_sync_planejar", args: {} },
+    cron_jobs: ["pgc-sync-planejar", "pgc-sync-tick"],
+    disparavel: true,
+    aviso: "Rodar agora enfileira as páginas do PGC; a coleta roda sozinha nos próximos minutos. Só grava o que mudou. Não depende do GitHub.",
   },
   {
     slug: "sync-compras-catmat",
